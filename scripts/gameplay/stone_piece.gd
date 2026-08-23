@@ -80,7 +80,20 @@ func is_collectible() -> bool:
 
 
 func set_collection_enabled(enabled: bool) -> void:
-	set_deferred("monitoring", enabled)
+	set_deferred("monitoring", enabled and current_state == State.SCATTERED)
+
+
+func deposit_to_stack() -> void:
+	set_physics_process(false)
+	_scatter_active = false
+	_scatter_velocity = Vector2.ZERO
+	_scatter_angular_velocity = 0.0
+	set_deferred("monitoring", false)
+	top_level = false
+	rotation = 0.0
+	scale = Vector2.ONE
+	current_state = State.DEPOSITED
+	play_pickup_feedback()
 
 
 func play_pickup_feedback() -> void:

@@ -9,6 +9,7 @@ const TOWER_MARGIN_TARGET: float = 320.0
 const TOWER_MARGIN_FLOOR: float = 40.0
 
 @onready var _playground_background: ColorRect = $PlaygroundBackground
+@onready var _rebuild_zone: RebuildZone = $RebuildZone
 @onready var _stone_tower: StoneTower = $StoneTower
 @onready var _player: GullyPlayerController = $Player
 @onready var _throw_ball: ThrowBall = $ThrowBall
@@ -23,6 +24,8 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _reset_button: Button = $UI/ResetButton
 
 var _fps_refresh_remaining: float = 0.0
+var _carried_count: int = 0
+var _rebuilt_count: int = 0
 
 
 func _ready() -> void:
@@ -33,10 +36,12 @@ func _ready() -> void:
 	_round_controller.result_ready.connect(_on_round_result_ready)
 	_round_controller.state_changed.connect(_on_round_state_changed)
 	_stone_tower.tower_scatter_started.connect(_on_tower_scatter_started)
+	_stone_tower.deposited_count_changed.connect(_on_deposited_count_changed)
 	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
+	_rebuild_zone.setup(_player)
 	_stone_trail.setup(_player, _stone_tower, _round_controller)
-	_round_controller.setup(_throw_ball, _stone_tower, _player, _stone_trail)
+	_round_controller.setup(_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone)
 
 
 func _on_reset_button_pressed() -> void:
@@ -48,7 +53,19 @@ func _on_round_result_ready(message: String) -> void:
 
 
 func _on_stone_count_changed(count: int) -> void:
-	_stones_label.text = "Stones %d/%d" % [count, StoneTower.STONE_COUNT]
+	_carried_count = count
+	_refresh_stones_label()
+
+
+func _on_deposited_count_changed(count: int) -> void:
+	_rebuilt_count = count
+	_refresh_stones_label()
+
+
+func _refresh_stones_label() -> void:
+	_stones_label.text = "Carried: %d   Rebuilt: %d/%d" % [
+		_carried_count, _rebuilt_count, StoneTower.STONE_COUNT
+	]
 
 
 func _on_round_state_changed(new_state: RoundController.State) -> void:
@@ -68,6 +85,8 @@ func _get_controls_text(state: RoundController.State) -> String:
 			return "Stones scattering..."
 		RoundController.State.RAID, RoundController.State.RETURN:
 			return "Touch or left-drag to move | WASD / arrow keys"
+		RoundController.State.REBUILD:
+			return "Tower rebuilding..."
 		_:
 			return "Press Reset or R"
 
@@ -101,3 +120,4 @@ func _update_viewport_layout() -> void:
 	var tower_x: float = clampf(viewport_size.x * 0.62, horizontal_margin, viewport_size.x - horizontal_margin)
 	var tower_y: float = clampf(viewport_size.y * 0.5, vertical_margin, viewport_size.y - vertical_margin)
 	_stone_tower.position = Vector2(tower_x, tower_y)
+	_rebuild_zone.position = _stone_tower.position

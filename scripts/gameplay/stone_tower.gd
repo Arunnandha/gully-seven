@@ -4,6 +4,7 @@ extends Node2D
 
 signal tower_scatter_started(impact_position: Vector2)
 signal tower_scatter_finished
+signal deposited_count_changed(count: int)
 
 const STONE_COUNT: int = 7
 const BOTTOM_WIDTH: float = 118.0
@@ -41,6 +42,7 @@ const FAN_ANGLE_BY_INDEX: Array[float] = [
 @export var scatter_seed: int = 73471
 
 var _pieces: Array[StonePieceType] = []
+var _deposited_pieces: Array[StonePieceType] = []
 var _scatter_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _settled_piece_count: int = 0
 var _scatter_active: bool = false
@@ -57,9 +59,32 @@ func _ready() -> void:
 func reset_stack() -> void:
 	_scatter_active = false
 	_settled_piece_count = 0
+	_deposited_pieces.clear()
 	set_physics_process(false)
 	for piece: StonePieceType in _pieces:
 		piece.reset_to_stack()
+	deposited_count_changed.emit(0)
+
+
+func deposit_stone(piece: StonePieceType) -> void:
+	if _deposited_pieces.has(piece):
+		return
+	_deposited_pieces.append(piece)
+	piece.deposit_to_stack()
+	# Larger stones (lower original stack_index) always sit lower, so the
+	# rebuilt stack looks correct regardless of collection/deposit order.
+	_deposited_pieces.sort_custom(_compare_by_stack_index)
+	for slot_index: int in range(_deposited_pieces.size()):
+		_deposited_pieces[slot_index].position = _get_stack_position(slot_index)
+	deposited_count_changed.emit(_deposited_pieces.size())
+
+
+func get_deposited_count() -> int:
+	return _deposited_pieces.size()
+
+
+static func _compare_by_stack_index(first: StonePiece, second: StonePiece) -> bool:
+	return first.stack_index < second.stack_index
 
 
 func get_footprint_radius() -> float:

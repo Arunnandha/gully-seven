@@ -3,7 +3,6 @@ extends Node
 
 
 signal stone_count_changed(count: int)
-signal all_stones_collected
 
 # Player path samples are kept SAMPLE_SPACING apart along the travelled route,
 # so arc-length lookups are O(1) index math instead of per-frame walks.
@@ -173,29 +172,61 @@ func _get_path_position(arc_distance: float, player_position: Vector2) -> Vector
 	return oldest + direction * overflow
 
 
+func get_carried_count() -> int:
+	return _carried_stones.size()
+
+
+func pop_front_stone() -> StonePiece:
+	if _carried_stones.is_empty():
+		return null
+
+	var piece: StonePiece = _carried_stones[0]
+	_carried_stones.remove_at(0)
+	if _carried_stones.is_empty():
+		_active_blend_count = 0
+	else:
+		_recompute_arc_distances()
+		# Give every remaining stone a short catch-up blend from where it is
+		# now to its new, closer slot so the chain compacts smoothly.
+		_active_blend_count = 0
+		for slot_index: int in range(_carried_stones.size()):
+			var remaining_stone: StonePiece = _carried_stones[slot_index]
+			_blend_start_positions[slot_index] = remaining_stone.global_position
+			_blend_start_rotations[slot_index] = remaining_stone.rotation
+			_blend_remaining[slot_index] = PICKUP_BLEND_DURATION
+			_active_blend_count += 1
+		_last_player_position = Vector2.INF
+
+	_player_controller.set_carried_stone_count(_carried_stones.size())
+	stone_count_changed.emit(_carried_stones.size())
+	return piece
+
+
+func _recompute_arc_distances() -> void:
+	for slot_index: int in range(_carried_stones.size()):
+		var radius: float = _carried_stones[slot_index].get_separation_radius()
+		if slot_index == 0:
+			_arc_distances[0] = clampf(
+				GullyPlayerController.PLAYER_RADIUS + radius + LINK_GAP,
+				MIN_CENTER_SPACING,
+				MAX_CENTER_SPACING
+			)
+		else:
+			var previous_radius: float = _carried_stones[slot_index - 1].get_separation_radius()
+			_arc_distances[slot_index] = _arc_distances[slot_index - 1] + clampf(
+				previous_radius + radius + LINK_GAP,
+				MIN_CENTER_SPACING,
+				MAX_CENTER_SPACING
+			)
+
+
 func _on_piece_collected(piece: StonePiece) -> void:
 	if _carried_stones.has(piece):
 		return
 
 	_carried_stones.append(piece)
 	var slot_index: int = _carried_stones.size() - 1
-	var radius: float = piece.get_separation_radius()
-	var spacing: float
-	if slot_index == 0:
-		spacing = clampf(
-			GullyPlayerController.PLAYER_RADIUS + radius + LINK_GAP,
-			MIN_CENTER_SPACING,
-			MAX_CENTER_SPACING
-		)
-		_arc_distances[0] = spacing
-	else:
-		var previous_radius: float = _carried_stones[slot_index - 1].get_separation_radius()
-		spacing = clampf(
-			previous_radius + radius + LINK_GAP,
-			MIN_CENTER_SPACING,
-			MAX_CENTER_SPACING
-		)
-		_arc_distances[slot_index] = _arc_distances[slot_index - 1] + spacing
+	_recompute_arc_distances()
 
 	_blend_start_positions[slot_index] = piece.global_position
 	_blend_start_rotations[slot_index] = piece.rotation
@@ -205,12 +236,13 @@ func _on_piece_collected(piece: StonePiece) -> void:
 	_player_controller.set_carried_stone_count(_carried_stones.size())
 	stone_count_changed.emit(_carried_stones.size())
 
-	if _carried_stones.size() >= StoneTower.STONE_COUNT:
-		all_stones_collected.emit()
-
 
 func _on_round_state_changed(new_state: RoundController.State) -> void:
-	_stone_tower.set_collection_enabled(new_state == RoundController.State.RAID)
+	var collection_allowed: bool = (
+		new_state == RoundController.State.RAID
+		or new_state == RoundController.State.RETURN
+	)
+	_stone_tower.set_collection_enabled(collection_allowed)
 	match new_state:
 		RoundController.State.RAID:
 			_reset_history()
