@@ -1,3 +1,4 @@
+class_name GullyPlayerController
 extends CharacterBody2D
 
 
@@ -16,6 +17,7 @@ var _mouse_drag_active: bool = false
 var _joystick_origin: Vector2 = Vector2.ZERO
 var _joystick_input: Vector2 = Vector2.ZERO
 var _viewport_size: Vector2 = Vector2.ZERO
+var _movement_enabled: bool = true
 
 
 func _ready() -> void:
@@ -23,7 +25,19 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_update_viewport_size)
 
 
+func set_movement_enabled(enabled: bool) -> void:
+	_movement_enabled = enabled
+	if not enabled:
+		_active_touch_index = NO_TOUCH
+		_mouse_drag_active = false
+		_joystick_input = Vector2.ZERO
+		_joystick_visual.hide_joystick()
+		velocity = Vector2.ZERO
+
+
 func _input(event: InputEvent) -> void:
+	if not _movement_enabled:
+		return
 	if event is InputEventScreenTouch:
 		var touch_event: InputEventScreenTouch = event as InputEventScreenTouch
 		_handle_screen_touch(touch_event)
@@ -39,6 +53,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _movement_enabled:
+		return
+
 	var input_direction: Vector2 = _joystick_input if _pointer_is_active() else _get_keyboard_input()
 	var target_velocity: Vector2 = input_direction * maximum_speed
 	var change_rate: float = acceleration if target_velocity.length_squared() > 0.0 else deceleration

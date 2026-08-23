@@ -1,8 +1,10 @@
-[gd_scene load_steps=4 format=3 uid="uid://dkvaj6optaj87"]
+[gd_scene load_steps=6 format=3 uid="uid://dkvaj6optaj87"]
 
 [ext_resource type="Script" uid="uid://dtyyakq181nbo" path="res://main.gd" id="1_ig7tw"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/stone_tower.tscn" id="3_tower"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/throw_ball.tscn" id="4_ball"]
+[ext_resource type="Script" path="res://scripts/gameplay/round_controller.gd" id="5_round"]
 
 [node name="Main" type="Node2D" unique_id=1514691895]
 script = ExtResource("1_ig7tw")
@@ -15,6 +17,11 @@ color = Color(0.70, 0.45, 0.25, 1)
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 position = Vector2(640, 360)
+
+[node name="ThrowBall" parent="." instance=ExtResource("4_ball")]
+
+[node name="RoundController" type="Node" parent="."]
+script = ExtResource("5_round")
 
 [node name="UI" type="CanvasLayer" parent="."]
 layer = 10
@@ -42,3 +49,28 @@ theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
 text = "Touch or left-drag to move | WASD / arrow keys"
+
+[node name="ResultLabel" type="Label" parent="UI"]
+offset_left = 16.0
+offset_top = 78.0
+offset_right = 480.0
+offset_bottom = 106.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.75, 1)
+theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 16
+text = "Drag from the ball to aim, release to throw"
+
+[node name="ResetButton" type="Button" parent="UI"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -156.0
+offset_top = -88.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 20
+text = "Reset"

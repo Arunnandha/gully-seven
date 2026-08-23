@@ -28,6 +28,10 @@ func reset_stack() -> void:
 		piece.reset_to_stack()
 
 
+func get_footprint_radius() -> float:
+	return BOTTOM_WIDTH * 0.5 + 12.0
+
+
 func _create_stone_pieces() -> void:
 	assert(stone_piece_scene != null, "StoneTower requires a StonePiece scene.")
 	if not _pieces.is_empty():
