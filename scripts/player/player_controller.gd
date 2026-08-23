@@ -8,7 +8,6 @@ const PLAYER_RADIUS: float = 28.0
 @export_range(1.0, 600.0, 1.0) var maximum_speed: float = 300.0
 @export_range(1.0, 3000.0, 1.0) var acceleration: float = 1200.0
 @export_range(1.0, 3000.0, 1.0) var deceleration: float = 900.0
-@export var gameplay_size: Vector2 = Vector2(1280.0, 720.0)
 
 @onready var _joystick_visual: GullyJoystickVisual = $JoystickLayer/JoystickVisual
 
@@ -16,6 +15,12 @@ var _active_touch_index: int = NO_TOUCH
 var _mouse_drag_active: bool = false
 var _joystick_origin: Vector2 = Vector2.ZERO
 var _joystick_input: Vector2 = Vector2.ZERO
+var _viewport_size: Vector2 = Vector2.ZERO
+
+
+func _ready() -> void:
+	_update_viewport_size()
+	get_viewport().size_changed.connect(_update_viewport_size)
 
 
 func _input(event: InputEvent) -> void:
@@ -124,15 +129,22 @@ func _get_keyboard_input() -> Vector2:
 
 
 func _keep_inside_gameplay_area() -> void:
-	position.x = clampf(position.x, PLAYER_RADIUS, gameplay_size.x - PLAYER_RADIUS)
-	position.y = clampf(position.y, PLAYER_RADIUS, gameplay_size.y - PLAYER_RADIUS)
+	var maximum_x: float = _viewport_size.x - PLAYER_RADIUS
+	var maximum_y: float = _viewport_size.y - PLAYER_RADIUS
+
+	position.x = clampf(position.x, PLAYER_RADIUS, maximum_x)
+	position.y = clampf(position.y, PLAYER_RADIUS, maximum_y)
 
 	if position.x <= PLAYER_RADIUS and velocity.x < 0.0:
 		velocity.x = 0.0
-	elif position.x >= gameplay_size.x - PLAYER_RADIUS and velocity.x > 0.0:
+	elif position.x >= maximum_x and velocity.x > 0.0:
 		velocity.x = 0.0
 
 	if position.y <= PLAYER_RADIUS and velocity.y < 0.0:
 		velocity.y = 0.0
-	elif position.y >= gameplay_size.y - PLAYER_RADIUS and velocity.y > 0.0:
+	elif position.y >= maximum_y and velocity.y > 0.0:
 		velocity.y = 0.0
+
+
+func _update_viewport_size() -> void:
+	_viewport_size = get_viewport_rect().size
