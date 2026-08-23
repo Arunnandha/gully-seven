@@ -5,3 +5,9 @@
 *.apk
 *.aab
 builds/
+node_modules/
+.expo/
+android/.gradle/
+android/app/build/
+.env
+*.keystore
