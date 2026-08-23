@@ -5,8 +5,8 @@ extends CharacterBody2D
 signal aim_started
 signal aim_cancelled
 signal thrown(direction: Vector2, power: float)
-signal hit
-signal stopped
+signal hit(impact_direction: Vector2, impact_speed: float, impact_position: Vector2)
+signal stopped(was_hit: bool)
 
 const NO_TOUCH: int = -1
 const BALL_RADIUS: float = 14.0
@@ -31,6 +31,7 @@ var _viewport_bounds: Rect2 = Rect2()
 func _ready() -> void:
 	_update_viewport_bounds()
 	get_viewport().size_changed.connect(_update_viewport_bounds)
+	set_physics_process(false)
 
 
 func configure(stone_tower: StoneTower) -> void:
@@ -38,12 +39,16 @@ func configure(stone_tower: StoneTower) -> void:
 
 
 func reset_to_start(start_position: Vector2) -> void:
+	set_physics_process(false)
 	_active_touch_index = NO_TOUCH
 	_mouse_drag_active = false
 	_is_aiming = false
 	is_traveling = false
 	velocity = Vector2.ZERO
 	global_position = start_position
+	visible = true
+	collision_layer = 1
+	collision_mask = 1
 	_aim_visual.clear_aim()
 
 
@@ -139,6 +144,7 @@ func _end_aim(pointer_position: Vector2) -> void:
 
 	velocity = direction * speed
 	is_traveling = true
+	set_physics_process(true)
 	thrown.emit(direction, speed)
 
 
@@ -154,11 +160,16 @@ func _check_travel_result() -> void:
 
 
 func _stop_travel(was_hit: bool) -> void:
+	var impact_velocity: Vector2 = velocity
 	velocity = Vector2.ZERO
 	is_traveling = false
+	set_physics_process(false)
+	collision_layer = 0
+	collision_mask = 0
+	visible = false
 	if was_hit:
-		hit.emit()
-	stopped.emit()
+		hit.emit(impact_velocity.normalized(), impact_velocity.length(), global_position)
+	stopped.emit(was_hit)
 
 
 func _update_viewport_bounds() -> void:

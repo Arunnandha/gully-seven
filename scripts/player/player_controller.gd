@@ -35,6 +35,12 @@ func set_movement_enabled(enabled: bool) -> void:
 		velocity = Vector2.ZERO
 
 
+func reset_to_start(start_position: Vector2) -> void:
+	set_movement_enabled(false)
+	global_position = start_position
+	velocity = Vector2.ZERO
+
+
 func _input(event: InputEvent) -> void:
 	if not _movement_enabled:
 		return

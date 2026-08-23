@@ -2,13 +2,21 @@ extends Node2D
 
 
 const FPS_REFRESH_INTERVAL: float = 0.5
+const ImpactEffectType = preload("res://scripts/presentation/impact_effect.gd")
+
+# Keep this at least as large as StoneTower's scatter distance ceiling so the
+# tower is never placed closer to an edge than stones can normally travel.
+const TOWER_MARGIN_TARGET: float = 260.0
+const TOWER_MARGIN_FLOOR: float = 40.0
 
 @onready var _playground_background: ColorRect = $PlaygroundBackground
 @onready var _stone_tower: StoneTower = $StoneTower
 @onready var _player: GullyPlayerController = $Player
 @onready var _throw_ball: ThrowBall = $ThrowBall
 @onready var _round_controller: RoundController = $RoundController
+@onready var _impact_effect: ImpactEffectType = $ImpactEffect
 @onready var _fps_label: Label = $UI/FPSLabel
+@onready var _state_label: Label = $UI/StateLabel
 @onready var _result_label: Label = $UI/ResultLabel
 @onready var _reset_button: Button = $UI/ResetButton
 
@@ -21,6 +29,8 @@ func _ready() -> void:
 	_refresh_fps_label()
 
 	_round_controller.result_ready.connect(_on_round_result_ready)
+	_round_controller.state_changed.connect(_on_round_state_changed)
+	_stone_tower.tower_scatter_started.connect(_on_tower_scatter_started)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
 	_round_controller.setup(_throw_ball, _stone_tower, _player)
 
@@ -31,6 +41,16 @@ func _on_reset_button_pressed() -> void:
 
 func _on_round_result_ready(message: String) -> void:
 	_result_label.text = message
+
+
+func _on_round_state_changed(_new_state: RoundController.State) -> void:
+	_state_label.text = "State: " + _round_controller.get_state_name()
+	if _round_controller.current_state == RoundController.State.READY:
+		_impact_effect.stop()
+
+
+func _on_tower_scatter_started(impact_position: Vector2) -> void:
+	_impact_effect.play_at(impact_position)
 
 
 func _process(delta: float) -> void:
@@ -48,4 +68,13 @@ func _update_viewport_layout() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_playground_background.position = Vector2.ZERO
 	_playground_background.size = viewport_size
-	_stone_tower.position = Vector2(viewport_size.x * 0.70, viewport_size.y * 0.50)
+
+	var horizontal_margin: float = clampf(
+		minf(TOWER_MARGIN_TARGET, viewport_size.x * 0.5), TOWER_MARGIN_FLOOR, viewport_size.x * 0.5
+	)
+	var vertical_margin: float = clampf(
+		minf(TOWER_MARGIN_TARGET, viewport_size.y * 0.5), TOWER_MARGIN_FLOOR, viewport_size.y * 0.5
+	)
+	var tower_x: float = clampf(viewport_size.x * 0.68, horizontal_margin, viewport_size.x - horizontal_margin)
+	var tower_y: float = clampf(viewport_size.y * 0.5, vertical_margin, viewport_size.y - vertical_margin)
+	_stone_tower.position = Vector2(tower_x, tower_y)
