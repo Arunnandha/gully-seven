@@ -28,6 +28,8 @@ const OUTLIER_BONUS_MAX: float = 110.0
 const EDGE_SAFETY_MARGIN: float = 40.0
 const HARD_DISTANCE_CEILING: float = 340.0
 const MINIMUM_DISTANCE: float = 40.0
+const FINAL_SEPARATION_PADDING: float = 6.0
+const FINAL_SEPARATION_PASSES: int = 8
 
 # One fan offset per stack index (0 = bottom/heaviest .. 6 = top/lightest),
 # broad enough to cover forward, sideways, and one backward-leaning stone.
@@ -64,6 +66,15 @@ func get_footprint_radius() -> float:
 	return BOTTOM_WIDTH * 0.5 + 12.0
 
 
+func get_pieces() -> Array[StonePieceType]:
+	return _pieces
+
+
+func set_collection_enabled(enabled: bool) -> void:
+	for piece: StonePieceType in _pieces:
+		piece.set_collection_enabled(enabled)
+
+
 func scatter(
 	impact_direction: Vector2,
 	impact_speed: float,
@@ -79,16 +90,18 @@ func scatter(
 	var strength_t: float = clampf(impact_speed / ThrowBall.MAX_THROW_SPEED, 0.0, 1.0)
 	var distance_scale: float = lerpf(DISTANCE_SCALE_MIN, DISTANCE_SCALE_MAX, strength_t)
 	var angle_jitter_limit: float = lerpf(ANGLE_JITTER_MIN, ANGLE_JITTER_MAX, strength_t)
-	var max_allowed_distance: float = _get_max_allowed_distance()
 
 	_scatter_rng.seed = scatter_seed
 	_settled_piece_count = 0
 	_scatter_active = true
-	set_physics_process(true)
 	tower_scatter_started.emit(impact_position)
 
 	for piece: StonePieceType in _pieces:
 		var index_t: float = float(piece.stack_index) / float(STONE_COUNT - 1)
+		var jitter: float = _scatter_rng.randf_range(-angle_jitter_limit, angle_jitter_limit)
+		var direction: Vector2 = normalized_impact.rotated(
+			FAN_ANGLE_BY_INDEX[piece.stack_index] + jitter
+		)
 		var target_distance: float = lerpf(MIN_INDEX_DISTANCE, MAX_INDEX_DISTANCE, index_t)
 		target_distance *= distance_scale
 
@@ -96,12 +109,8 @@ func scatter(
 			target_distance += lerpf(OUTLIER_BONUS_MIN, OUTLIER_BONUS_MAX, strength_t)
 
 		target_distance = clampf(target_distance, MINIMUM_DISTANCE, HARD_DISTANCE_CEILING)
+		var max_allowed_distance: float = _get_max_allowed_distance(direction, piece)
 		target_distance = minf(target_distance, max_allowed_distance)
-
-		var jitter: float = _scatter_rng.randf_range(-angle_jitter_limit, angle_jitter_limit)
-		var direction: Vector2 = normalized_impact.rotated(
-			FAN_ANGLE_BY_INDEX[piece.stack_index] + jitter
-		)
 		var initial_speed: float = sqrt(
 			2.0 * StonePiece.SCATTER_FRICTION * target_distance
 			+ StonePiece.SETTLE_SPEED * StonePiece.SETTLE_SPEED
@@ -113,42 +122,35 @@ func scatter(
 		piece.start_scatter(direction * initial_speed, angular_velocity)
 
 
-func _get_max_allowed_distance() -> float:
+func _get_max_allowed_distance(direction: Vector2, piece: StonePieceType) -> float:
 	var viewport_rect: Rect2 = get_viewport_rect()
-	var distance_to_left: float = global_position.x - viewport_rect.position.x
-	var distance_to_right: float = viewport_rect.end.x - global_position.x
-	var distance_to_top: float = global_position.y - viewport_rect.position.y
-	var distance_to_bottom: float = viewport_rect.end.y - global_position.y
-	var closest_edge: float = minf(
-		minf(distance_to_left, distance_to_right),
-		minf(distance_to_top, distance_to_bottom)
-	)
-	return maxf(MINIMUM_DISTANCE, closest_edge - EDGE_SAFETY_MARGIN)
+	var start_position: Vector2 = piece.global_position
+	var safety_extent: float = piece.stone_size.x * 0.5 + EDGE_SAFETY_MARGIN
+	var maximum_distance: float = HARD_DISTANCE_CEILING
 
+	if direction.x > 0.0001:
+		maximum_distance = minf(
+			maximum_distance,
+			(viewport_rect.end.x - start_position.x - safety_extent) / direction.x
+		)
+	elif direction.x < -0.0001:
+		maximum_distance = minf(
+			maximum_distance,
+			(start_position.x - viewport_rect.position.x - safety_extent) / -direction.x
+		)
 
-func _physics_process(_delta: float) -> void:
-	if not _scatter_active:
-		set_physics_process(false)
-		return
-	_resolve_piece_separation()
+	if direction.y > 0.0001:
+		maximum_distance = minf(
+			maximum_distance,
+			(viewport_rect.end.y - start_position.y - safety_extent) / direction.y
+		)
+	elif direction.y < -0.0001:
+		maximum_distance = minf(
+			maximum_distance,
+			(start_position.y - viewport_rect.position.y - safety_extent) / -direction.y
+		)
 
-
-func _resolve_piece_separation() -> void:
-	for first_index: int in range(_pieces.size()):
-		for second_index: int in range(first_index + 1, _pieces.size()):
-			_separate_pair(_pieces[first_index], _pieces[second_index])
-
-
-func _separate_pair(first: StonePieceType, second: StonePieceType) -> void:
-	var offset: Vector2 = second.global_position - first.global_position
-	var distance: float = offset.length()
-	var minimum_distance: float = first.get_separation_radius() + second.get_separation_radius()
-	if distance >= minimum_distance or distance <= 0.0001:
-		return
-	var overlap: float = minimum_distance - distance
-	var push: Vector2 = offset / distance * (overlap * 0.5)
-	first.global_position -= push
-	second.global_position += push
+	return maxf(MINIMUM_DISTANCE, maximum_distance)
 
 
 func _create_stone_pieces() -> void:
@@ -176,8 +178,48 @@ func _on_stone_settled(_piece: StonePieceType) -> void:
 	_settled_piece_count += 1
 	if _settled_piece_count == STONE_COUNT:
 		_scatter_active = false
-		set_physics_process(false)
+		_resolve_final_overlaps()
 		tower_scatter_finished.emit()
+
+
+func _resolve_final_overlaps() -> void:
+	for _pass_index: int in range(FINAL_SEPARATION_PASSES):
+		var overlap_found: bool = false
+		for first_index: int in range(_pieces.size()):
+			for second_index: int in range(first_index + 1, _pieces.size()):
+				overlap_found = _separate_settled_pair(
+					_pieces[first_index],
+					_pieces[second_index]
+				) or overlap_found
+		if not overlap_found:
+			return
+
+
+func _separate_settled_pair(first: StonePieceType, second: StonePieceType) -> bool:
+	var offset: Vector2 = second.global_position - first.global_position
+	var distance: float = offset.length()
+	var direction: Vector2 = offset / distance if distance > 0.0001 else _get_fallback_separation_direction(
+		first.stack_index,
+		second.stack_index
+	)
+	var first_extent: float = first.get_separation_extent(direction)
+	var second_extent: float = second.get_separation_extent(-direction)
+	var required_distance: float = first_extent + second_extent + FINAL_SEPARATION_PADDING
+	if distance >= required_distance:
+		return false
+
+	var overlap: float = required_distance - distance
+	var combined_extent: float = first_extent + second_extent
+	var first_share: float = second_extent / combined_extent
+	var second_share: float = first_extent / combined_extent
+	first.apply_settle_separation(-direction * overlap * first_share)
+	second.apply_settle_separation(direction * overlap * second_share)
+	return true
+
+
+func _get_fallback_separation_direction(first_index: int, second_index: int) -> Vector2:
+	var deterministic_angle: float = float(first_index * 53 + second_index * 97) * 0.017
+	return Vector2.RIGHT.rotated(deterministic_angle)
 
 
 func _get_stone_size(stack_index: int) -> Vector2:

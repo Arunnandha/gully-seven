@@ -10,12 +10,16 @@ enum State {
 }
 
 signal stone_settled(piece: StonePiece)
+signal stone_collected(piece: StonePiece)
 
 const OUTLINE_COLOR: Color = Color(0.16, 0.10, 0.06, 1.0)
 const SCATTER_FRICTION: float = 360.0
 const ANGULAR_FRICTION: float = 5.0
 const SETTLE_SPEED: float = 18.0
 const SETTLE_ANGULAR_SPEED: float = 0.25
+const PICKUP_PULSE_SCALE: float = 1.35
+const PICKUP_PULSE_UP_DURATION: float = 0.08
+const PICKUP_PULSE_DOWN_DURATION: float = 0.14
 
 @export var stone_size: Vector2 = Vector2(118.0, 30.0)
 @export var stone_color: Color = Color(0.50, 0.35, 0.22, 1.0)
@@ -29,12 +33,15 @@ var _scatter_velocity: Vector2 = Vector2.ZERO
 var _scatter_angular_velocity: float = 0.0
 var _viewport_size: Vector2 = Vector2.ZERO
 var _scatter_active: bool = false
+var _pickup_tween: Tween = null
 
 
 func _ready() -> void:
 	set_process(false)
 	set_physics_process(false)
 	set_process_input(false)
+	monitoring = false
+	body_entered.connect(_on_body_entered)
 	_update_viewport_size()
 	get_viewport().size_changed.connect(_update_viewport_size)
 
@@ -58,11 +65,43 @@ func reset_to_stack() -> void:
 	_scatter_active = false
 	_scatter_velocity = Vector2.ZERO
 	_scatter_angular_velocity = 0.0
+	set_deferred("monitoring", false)
+	if _pickup_tween != null and _pickup_tween.is_valid():
+		_pickup_tween.kill()
 	top_level = false
 	position = _original_stack_position
 	rotation = 0.0
 	scale = Vector2.ONE
 	current_state = State.STACKED
+
+
+func is_collectible() -> bool:
+	return current_state == State.SCATTERED and not _scatter_active
+
+
+func set_collection_enabled(enabled: bool) -> void:
+	set_deferred("monitoring", enabled)
+
+
+func play_pickup_feedback() -> void:
+	if _pickup_tween != null and _pickup_tween.is_valid():
+		_pickup_tween.kill()
+	scale = Vector2.ONE
+	_pickup_tween = create_tween()
+	_pickup_tween.set_trans(Tween.TRANS_BACK)
+	_pickup_tween.tween_property(self, "scale", Vector2.ONE * PICKUP_PULSE_SCALE, PICKUP_PULSE_UP_DURATION)
+	_pickup_tween.tween_property(self, "scale", Vector2.ONE, PICKUP_PULSE_DOWN_DURATION)
+
+
+func _on_body_entered(body: Node2D) -> void:
+	if not (body is GullyPlayerController):
+		return
+	if not is_collectible():
+		return
+	current_state = State.CARRIED
+	set_deferred("monitoring", false)
+	play_pickup_feedback()
+	stone_collected.emit(self)
 
 
 func start_scatter(initial_velocity: Vector2, initial_angular_velocity: float) -> void:
@@ -133,6 +172,24 @@ func _resolve_viewport_boundaries() -> void:
 
 func get_separation_radius() -> float:
 	return (stone_size.x + stone_size.y) * 0.25
+
+
+func get_separation_extent(world_direction: Vector2) -> float:
+	var direction: Vector2 = world_direction.normalized()
+	if direction.length_squared() <= 0.0:
+		return stone_size.x * 0.5
+	var local_direction: Vector2 = direction.rotated(-global_rotation)
+	var half_width: float = stone_size.x * 0.5
+	var half_height: float = stone_size.y * 0.5
+	return sqrt(
+		half_width * half_width * local_direction.x * local_direction.x
+		+ half_height * half_height * local_direction.y * local_direction.y
+	)
+
+
+func apply_settle_separation(offset: Vector2) -> void:
+	global_position += offset
+	_resolve_viewport_boundaries()
 
 
 func _finish_scatter() -> void:

@@ -22,17 +22,20 @@ var current_state: State = State.READY
 var _ball: ThrowBall = null
 var _stone_tower: StoneTower = null
 var _player_controller: GullyPlayerController = null
+var _stone_trail: StoneTrail = null
 var _player_start_position: Vector2 = Vector2.ZERO
 
 
 func setup(
 	ball: ThrowBall,
 	stone_tower: StoneTower,
-	player_controller: GullyPlayerController
+	player_controller: GullyPlayerController,
+	stone_trail: StoneTrail
 ) -> void:
 	_ball = ball
 	_stone_tower = stone_tower
 	_player_controller = player_controller
+	_stone_trail = stone_trail
 	_player_start_position = _player_controller.global_position
 
 	_ball.configure(_stone_tower)
@@ -42,6 +45,7 @@ func setup(
 	_ball.hit.connect(_on_ball_hit)
 	_ball.stopped.connect(_on_ball_stopped)
 	_stone_tower.tower_scatter_finished.connect(_on_tower_scatter_finished)
+	_stone_trail.all_stones_collected.connect(_on_all_stones_collected)
 
 	_enter_ready()
 
@@ -61,6 +65,7 @@ func _enter_ready() -> void:
 	current_state = State.READY
 	_player_controller.reset_to_start(_player_start_position)
 	_stone_tower.reset_stack()
+	_stone_trail.reset()
 	_ball.reset_to_start(_player_controller.global_position + BALL_SPAWN_OFFSET)
 	_ball.aiming_enabled = true
 	_player_controller.set_movement_enabled(true)
@@ -119,7 +124,15 @@ func _on_tower_scatter_finished() -> void:
 	current_state = State.RAID
 	_player_controller.set_movement_enabled(true)
 	state_changed.emit(current_state)
-	result_ready.emit("Stones settled — RAID movement enabled")
+	result_ready.emit("Stones settled — collect all seven")
+
+
+func _on_all_stones_collected() -> void:
+	if current_state != State.RAID:
+		return
+	current_state = State.RETURN
+	state_changed.emit(current_state)
+	result_ready.emit("All seven collected — return with the stones")
 
 
 func get_state_name() -> String:

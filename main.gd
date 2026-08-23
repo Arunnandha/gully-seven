@@ -4,9 +4,8 @@ extends Node2D
 const FPS_REFRESH_INTERVAL: float = 0.5
 const ImpactEffectType = preload("res://scripts/presentation/impact_effect.gd")
 
-# Keep this at least as large as StoneTower's scatter distance ceiling so the
-# tower is never placed closer to an edge than stones can normally travel.
-const TOWER_MARGIN_TARGET: float = 260.0
+# Keep useful space around the tower while retaining a right-side Lagori setup.
+const TOWER_MARGIN_TARGET: float = 320.0
 const TOWER_MARGIN_FLOOR: float = 40.0
 
 @onready var _playground_background: ColorRect = $PlaygroundBackground
@@ -14,10 +13,13 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _player: GullyPlayerController = $Player
 @onready var _throw_ball: ThrowBall = $ThrowBall
 @onready var _round_controller: RoundController = $RoundController
+@onready var _stone_trail: StoneTrail = $StoneTrail
 @onready var _impact_effect: ImpactEffectType = $ImpactEffect
 @onready var _fps_label: Label = $UI/FPSLabel
+@onready var _controls_label: Label = $UI/ControlsLabel
 @onready var _state_label: Label = $UI/StateLabel
 @onready var _result_label: Label = $UI/ResultLabel
+@onready var _stones_label: Label = $UI/StonesLabel
 @onready var _reset_button: Button = $UI/ResetButton
 
 var _fps_refresh_remaining: float = 0.0
@@ -31,8 +33,10 @@ func _ready() -> void:
 	_round_controller.result_ready.connect(_on_round_result_ready)
 	_round_controller.state_changed.connect(_on_round_state_changed)
 	_stone_tower.tower_scatter_started.connect(_on_tower_scatter_started)
+	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
-	_round_controller.setup(_throw_ball, _stone_tower, _player)
+	_stone_trail.setup(_player, _stone_tower, _round_controller)
+	_round_controller.setup(_throw_ball, _stone_tower, _player, _stone_trail)
 
 
 func _on_reset_button_pressed() -> void:
@@ -43,10 +47,29 @@ func _on_round_result_ready(message: String) -> void:
 	_result_label.text = message
 
 
-func _on_round_state_changed(_new_state: RoundController.State) -> void:
+func _on_stone_count_changed(count: int) -> void:
+	_stones_label.text = "Stones %d/%d" % [count, StoneTower.STONE_COUNT]
+
+
+func _on_round_state_changed(new_state: RoundController.State) -> void:
 	_state_label.text = "State: " + _round_controller.get_state_name()
+	_controls_label.text = _get_controls_text(new_state)
 	if _round_controller.current_state == RoundController.State.READY:
 		_impact_effect.stop()
+
+
+func _get_controls_text(state: RoundController.State) -> String:
+	match state:
+		RoundController.State.READY:
+			return "Drag from the ball to aim | Drag elsewhere or WASD to move"
+		RoundController.State.AIM:
+			return "Release to throw | Short drag cancels"
+		RoundController.State.BREAK:
+			return "Stones scattering..."
+		RoundController.State.RAID, RoundController.State.RETURN:
+			return "Touch or left-drag to move | WASD / arrow keys"
+		_:
+			return "Press Reset or R"
 
 
 func _on_tower_scatter_started(impact_position: Vector2) -> void:
@@ -75,6 +98,6 @@ func _update_viewport_layout() -> void:
 	var vertical_margin: float = clampf(
 		minf(TOWER_MARGIN_TARGET, viewport_size.y * 0.5), TOWER_MARGIN_FLOOR, viewport_size.y * 0.5
 	)
-	var tower_x: float = clampf(viewport_size.x * 0.68, horizontal_margin, viewport_size.x - horizontal_margin)
+	var tower_x: float = clampf(viewport_size.x * 0.62, horizontal_margin, viewport_size.x - horizontal_margin)
 	var tower_y: float = clampf(viewport_size.y * 0.5, vertical_margin, viewport_size.y - vertical_margin)
 	_stone_tower.position = Vector2(tower_x, tower_y)

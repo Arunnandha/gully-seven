@@ -9,6 +9,8 @@ const PLAYER_RADIUS: float = 28.0
 @export_range(1.0, 600.0, 1.0) var maximum_speed: float = 300.0
 @export_range(1.0, 3000.0, 1.0) var acceleration: float = 1200.0
 @export_range(1.0, 3000.0, 1.0) var deceleration: float = 900.0
+@export_range(0.0, 0.5, 0.01) var speed_reduction_per_stone: float = 0.05
+@export_range(0.1, 1.0, 0.01) var minimum_speed_multiplier: float = 0.5
 
 @onready var _joystick_visual: GullyJoystickVisual = $JoystickLayer/JoystickVisual
 
@@ -18,6 +20,7 @@ var _joystick_origin: Vector2 = Vector2.ZERO
 var _joystick_input: Vector2 = Vector2.ZERO
 var _viewport_size: Vector2 = Vector2.ZERO
 var _movement_enabled: bool = true
+var _carried_stone_count: int = 0
 
 
 func _ready() -> void:
@@ -39,6 +42,18 @@ func reset_to_start(start_position: Vector2) -> void:
 	set_movement_enabled(false)
 	global_position = start_position
 	velocity = Vector2.ZERO
+
+
+func set_carried_stone_count(count: int) -> void:
+	_carried_stone_count = maxi(count, 0)
+
+
+func _get_effective_maximum_speed() -> float:
+	var multiplier: float = maxf(
+		minimum_speed_multiplier,
+		pow(1.0 - speed_reduction_per_stone, float(_carried_stone_count))
+	)
+	return maximum_speed * multiplier
 
 
 func _input(event: InputEvent) -> void:
@@ -63,7 +78,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var input_direction: Vector2 = _joystick_input if _pointer_is_active() else _get_keyboard_input()
-	var target_velocity: Vector2 = input_direction * maximum_speed
+	var target_velocity: Vector2 = input_direction * _get_effective_maximum_speed()
 	var change_rate: float = acceleration if target_velocity.length_squared() > 0.0 else deceleration
 
 	velocity = velocity.move_toward(target_velocity, change_rate * delta)
