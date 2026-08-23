@@ -15,6 +15,11 @@ const MAX_CENTER_SPACING: float = 70.0
 const LINK_GAP: float = 4.0
 const PICKUP_BLEND_DURATION: float = 0.3
 const FALLBACK_DIRECTION: Vector2 = Vector2(0.0, 1.0)
+# Breath-failure drop: one deterministic ring around the player. At radius 100
+# even seven stones sit ~82 px apart (chord), clear of each other's footprint.
+const DROP_RADIUS: float = 100.0
+const DROP_ANGLE_OFFSET: float = 0.6
+const DROP_VIEWPORT_MARGIN: float = 70.0
 
 var _player_controller: GullyPlayerController = null
 var _stone_tower: StoneTower = null
@@ -200,6 +205,34 @@ func pop_front_stone() -> StonePiece:
 	_player_controller.set_carried_stone_count(_carried_stones.size())
 	stone_count_changed.emit(_carried_stones.size())
 	return piece
+
+
+func drop_all_stones() -> void:
+	var count: int = _carried_stones.size()
+	if count == 0:
+		return
+
+	var viewport_rect: Rect2 = _player_controller.get_viewport_rect()
+	var origin: Vector2 = _player_controller.global_position
+	for slot_index: int in range(count):
+		var angle: float = DROP_ANGLE_OFFSET + TAU * float(slot_index) / float(count)
+		var drop_position: Vector2 = origin + Vector2.RIGHT.rotated(angle) * DROP_RADIUS
+		drop_position.x = clampf(
+			drop_position.x,
+			viewport_rect.position.x + DROP_VIEWPORT_MARGIN,
+			viewport_rect.end.x - DROP_VIEWPORT_MARGIN
+		)
+		drop_position.y = clampf(
+			drop_position.y,
+			viewport_rect.position.y + DROP_VIEWPORT_MARGIN,
+			viewport_rect.end.y - DROP_VIEWPORT_MARGIN
+		)
+		_carried_stones[slot_index].drop_scattered(drop_position)
+
+	_carried_stones.clear()
+	_active_blend_count = 0
+	_player_controller.set_carried_stone_count(0)
+	stone_count_changed.emit(0)
 
 
 func _recompute_arc_distances() -> void:

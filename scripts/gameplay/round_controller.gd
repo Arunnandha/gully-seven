@@ -26,6 +26,7 @@ var _stone_tower: StoneTower = null
 var _player_controller: GullyPlayerController = null
 var _stone_trail: StoneTrail = null
 var _rebuild_zone: RebuildZone = null
+var _breath_meter: BreathMeter = null
 var _player_start_position: Vector2 = Vector2.ZERO
 var _depositing: bool = false
 var _deposit_countdown: float = 0.0
@@ -41,13 +42,15 @@ func setup(
 	stone_tower: StoneTower,
 	player_controller: GullyPlayerController,
 	stone_trail: StoneTrail,
-	rebuild_zone: RebuildZone
+	rebuild_zone: RebuildZone,
+	breath_meter: BreathMeter
 ) -> void:
 	_ball = ball
 	_stone_tower = stone_tower
 	_player_controller = player_controller
 	_stone_trail = stone_trail
 	_rebuild_zone = rebuild_zone
+	_breath_meter = breath_meter
 	_player_start_position = _player_controller.global_position
 
 	_ball.configure(_stone_tower)
@@ -59,6 +62,7 @@ func setup(
 	_stone_tower.tower_scatter_finished.connect(_on_tower_scatter_finished)
 	_stone_trail.stone_count_changed.connect(_on_carried_count_changed)
 	_rebuild_zone.player_entered.connect(_on_rebuild_zone_entered)
+	_breath_meter.breath_expired.connect(_on_breath_expired)
 
 	_enter_ready()
 
@@ -100,6 +104,7 @@ func _enter_ready() -> void:
 	_deposit_countdown = 0.0
 	_rebuild_countdown = 0.0
 	set_physics_process(false)
+	_breath_meter.refill_full()
 	_player_controller.reset_to_start(_player_start_position)
 	_stone_tower.reset_stack()
 	_stone_trail.reset()
@@ -202,6 +207,7 @@ func _deposit_next_stone() -> void:
 		return
 
 	_depositing = false
+	_breath_meter.refill_full()
 	if _stone_tower.get_deposited_count() >= StoneTower.STONE_COUNT:
 		_enter_rebuild()
 	else:
@@ -209,6 +215,21 @@ func _deposit_next_stone() -> void:
 		result_ready.emit(
 			"%d rebuilt — collect the remaining stones" % _stone_tower.get_deposited_count()
 		)
+
+
+func _on_breath_expired() -> void:
+	if current_state != State.RAID and current_state != State.RETURN:
+		return
+
+	# Drop first so the pieces are SCATTERED before the RAID transition
+	# re-arms collection, then move the player home and refill.
+	_stone_trail.drop_all_stones()
+	_player_controller.global_position = _rebuild_zone.global_position
+	_player_controller.velocity = Vector2.ZERO
+	_breath_meter.refill_full()
+	if current_state == State.RETURN:
+		_change_state(State.RAID)
+	result_ready.emit("Out of breath! Stones dropped — recover and raid again")
 
 
 func _enter_rebuild() -> void:

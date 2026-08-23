@@ -15,6 +15,8 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _throw_ball: ThrowBall = $ThrowBall
 @onready var _round_controller: RoundController = $RoundController
 @onready var _stone_trail: StoneTrail = $StoneTrail
+@onready var _breath_meter: BreathMeter = $BreathMeter
+@onready var _breath_bar: BreathBar = $UI/BreathBar
 @onready var _impact_effect: ImpactEffectType = $ImpactEffect
 @onready var _fps_label: Label = $UI/FPSLabel
 @onready var _controls_label: Label = $UI/ControlsLabel
@@ -41,7 +43,11 @@ func _ready() -> void:
 	_reset_button.pressed.connect(_on_reset_button_pressed)
 	_rebuild_zone.setup(_player)
 	_stone_trail.setup(_player, _stone_tower, _round_controller)
-	_round_controller.setup(_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone)
+	_breath_meter.setup(_round_controller, _rebuild_zone)
+	_breath_bar.setup(_breath_meter)
+	_round_controller.setup(
+		_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone, _breath_meter
+	)
 
 
 func _on_reset_button_pressed() -> void:
@@ -71,6 +77,10 @@ func _refresh_stones_label() -> void:
 func _on_round_state_changed(new_state: RoundController.State) -> void:
 	_state_label.text = "State: " + _round_controller.get_state_name()
 	_controls_label.text = _get_controls_text(new_state)
+	_breath_bar.set_shown(
+		new_state == RoundController.State.RAID
+		or new_state == RoundController.State.RETURN
+	)
 	if _round_controller.current_state == RoundController.State.READY:
 		_impact_effect.stop()
 

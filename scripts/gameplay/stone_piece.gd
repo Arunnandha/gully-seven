@@ -83,6 +83,19 @@ func set_collection_enabled(enabled: bool) -> void:
 	set_deferred("monitoring", enabled and current_state == State.SCATTERED)
 
 
+func drop_scattered(drop_position: Vector2) -> void:
+	set_physics_process(false)
+	_scatter_active = false
+	_scatter_velocity = Vector2.ZERO
+	_scatter_angular_velocity = 0.0
+	if _pickup_tween != null and _pickup_tween.is_valid():
+		_pickup_tween.kill()
+	scale = Vector2.ONE
+	top_level = true
+	global_position = drop_position
+	current_state = State.SCATTERED
+
+
 func deposit_to_stack() -> void:
 	set_physics_process(false)
 	_scatter_active = false
