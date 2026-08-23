@@ -1,0 +1,24 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/player/player_visual.gd" id="2_visual"]
+[ext_resource type="Script" path="res://scripts/player/joystick_visual.gd" id="3_joystick"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_player"]
+radius = 28.0
+
+[node name="Player" type="CharacterBody2D"]
+motion_mode = 1
+script = ExtResource("1_controller")
+
+[node name="PlayerVisual" type="Node2D" parent="."]
+script = ExtResource("2_visual")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_player")
+
+[node name="JoystickLayer" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="JoystickVisual" type="Node2D" parent="JoystickLayer"]
+script = ExtResource("3_joystick")
