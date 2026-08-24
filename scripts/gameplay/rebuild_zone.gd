@@ -3,6 +3,7 @@ extends Node2D
 
 
 signal player_entered
+signal player_exited
 
 const RADIUS: float = 96.0
 const DASH_COUNT: int = 28
@@ -44,6 +45,8 @@ func _physics_process(_delta: float) -> void:
 	var inside: bool = is_player_inside()
 	if inside and not _player_was_inside:
 		player_entered.emit()
+	elif not inside and _player_was_inside:
+		player_exited.emit()
 	_player_was_inside = inside
 
 

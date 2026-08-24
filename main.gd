@@ -16,6 +16,7 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _round_controller: RoundController = $RoundController
 @onready var _stone_trail: StoneTrail = $StoneTrail
 @onready var _breath_meter: BreathMeter = $BreathMeter
+@onready var _defender: GullyDefender = $Defender
 @onready var _breath_bar: BreathBar = $UI/BreathBar
 @onready var _impact_effect: ImpactEffectType = $ImpactEffect
 @onready var _fps_label: Label = $UI/FPSLabel
@@ -46,7 +47,7 @@ func _ready() -> void:
 	_breath_meter.setup(_round_controller, _rebuild_zone)
 	_breath_bar.setup(_breath_meter)
 	_round_controller.setup(
-		_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone, _breath_meter
+		_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone, _breath_meter, _defender
 	)
 
 

@@ -27,6 +27,7 @@ var _player_controller: GullyPlayerController = null
 var _stone_trail: StoneTrail = null
 var _rebuild_zone: RebuildZone = null
 var _breath_meter: BreathMeter = null
+var _defender: GullyDefender = null
 var _player_start_position: Vector2 = Vector2.ZERO
 var _depositing: bool = false
 var _deposit_countdown: float = 0.0
@@ -43,7 +44,8 @@ func setup(
 	player_controller: GullyPlayerController,
 	stone_trail: StoneTrail,
 	rebuild_zone: RebuildZone,
-	breath_meter: BreathMeter
+	breath_meter: BreathMeter,
+	defender: GullyDefender
 ) -> void:
 	_ball = ball
 	_stone_tower = stone_tower
@@ -51,6 +53,7 @@ func setup(
 	_stone_trail = stone_trail
 	_rebuild_zone = rebuild_zone
 	_breath_meter = breath_meter
+	_defender = defender
 	_player_start_position = _player_controller.global_position
 
 	_ball.configure(_stone_tower)
@@ -62,7 +65,10 @@ func setup(
 	_stone_tower.tower_scatter_finished.connect(_on_tower_scatter_finished)
 	_stone_trail.stone_count_changed.connect(_on_carried_count_changed)
 	_rebuild_zone.player_entered.connect(_on_rebuild_zone_entered)
+	_rebuild_zone.player_exited.connect(_on_rebuild_zone_exited)
 	_breath_meter.breath_expired.connect(_on_breath_expired)
+	_defender.setup(_player_controller, _rebuild_zone)
+	_defender.player_tagged.connect(_on_defender_tagged)
 
 	_enter_ready()
 
@@ -93,9 +99,9 @@ func _physics_process(delta: float) -> void:
 
 func _change_state(new_state: State) -> void:
 	current_state = new_state
-	_rebuild_zone.set_active(
-		new_state == State.RAID or new_state == State.RETURN
-	)
+	var raid_or_return: bool = new_state == State.RAID or new_state == State.RETURN
+	_rebuild_zone.set_active(raid_or_return)
+	_defender.set_chase_enabled(raid_or_return)
 	state_changed.emit(new_state)
 
 
@@ -176,6 +182,28 @@ func _on_carried_count_changed(count: int) -> void:
 
 func _on_rebuild_zone_entered() -> void:
 	_try_start_deposit()
+
+
+func _on_rebuild_zone_exited() -> void:
+	_defender.start_grace()
+
+
+func _on_defender_tagged() -> void:
+	if current_state != State.RAID and current_state != State.RETURN:
+		return
+
+	var had_stones: bool = _stone_trail.get_carried_count() > 0
+	_stone_trail.drop_all_stones()
+	_player_controller.global_position = _rebuild_zone.global_position
+	_player_controller.velocity = Vector2.ZERO
+	_breath_meter.refill_full()
+	_defender.reset_to_spawn()
+	_defender.start_grace()
+	if current_state == State.RETURN:
+		_change_state(State.RAID)
+	result_ready.emit(
+		"Tagged! Stones dropped." if had_stones else "Tagged! Returned safely."
+	)
 
 
 func _try_start_deposit() -> void:
