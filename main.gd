@@ -17,6 +17,7 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _stone_trail: StoneTrail = $StoneTrail
 @onready var _breath_meter: BreathMeter = $BreathMeter
 @onready var _defender: GullyDefender = $Defender
+@onready var _score_manager: ScoreManager = $ScoreManager
 @onready var _breath_bar: BreathBar = $UI/BreathBar
 @onready var _impact_effect: ImpactEffectType = $ImpactEffect
 @onready var _fps_label: Label = $UI/FPSLabel
@@ -24,7 +25,10 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _state_label: Label = $UI/StateLabel
 @onready var _result_label: Label = $UI/ResultLabel
 @onready var _stones_label: Label = $UI/StonesLabel
+@onready var _round_label: Label = $UI/RoundLabel
+@onready var _score_label: Label = $UI/ScoreLabel
 @onready var _reset_button: Button = $UI/ResetButton
+@onready var _result_overlay: ResultOverlay = $UI/ResultOverlay
 
 var _fps_refresh_remaining: float = 0.0
 var _carried_count: int = 0
@@ -42,17 +46,54 @@ func _ready() -> void:
 	_stone_tower.deposited_count_changed.connect(_on_deposited_count_changed)
 	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
+	_score_manager.score_changed.connect(_on_score_changed)
+	_round_controller.round_won.connect(_on_round_won)
+	_result_overlay.play_again_pressed.connect(_on_play_again_pressed)
 	_rebuild_zone.setup(_player)
 	_stone_trail.setup(_player, _stone_tower, _round_controller)
 	_breath_meter.setup(_round_controller, _rebuild_zone)
 	_breath_bar.setup(_breath_meter)
 	_round_controller.setup(
-		_throw_ball, _stone_tower, _player, _stone_trail, _rebuild_zone, _breath_meter, _defender
+		_throw_ball,
+		_stone_tower,
+		_player,
+		_stone_trail,
+		_rebuild_zone,
+		_breath_meter,
+		_defender,
+		_score_manager
 	)
+	_on_score_changed(_score_manager.score)
+	_refresh_round_label()
 
 
 func _on_reset_button_pressed() -> void:
 	_round_controller.request_reset()
+
+
+func _on_score_changed(score: int) -> void:
+	_score_label.text = "Score: %d" % score
+
+
+func _refresh_round_label() -> void:
+	_round_label.text = "Round %d" % _score_manager.round_number
+
+
+func _on_round_won(
+	score: int,
+	time_seconds: float,
+	trips: int,
+	tags: int,
+	breath_failures: int,
+	best_score: int,
+	round_number: int
+) -> void:
+	_result_overlay.show_result(score, time_seconds, trips, tags, breath_failures, best_score, round_number)
+
+
+func _on_play_again_pressed() -> void:
+	_result_overlay.hide_result()
+	_round_controller.request_next_round()
 
 
 func _on_round_result_ready(message: String) -> void:
@@ -82,6 +123,9 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 		new_state == RoundController.State.RAID
 		or new_state == RoundController.State.RETURN
 	)
+	_refresh_round_label()
+	if new_state != RoundController.State.RESULT:
+		_result_overlay.hide_result()
 	if _round_controller.current_state == RoundController.State.READY:
 		_impact_effect.stop()
 

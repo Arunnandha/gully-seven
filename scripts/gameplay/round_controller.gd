@@ -14,6 +14,15 @@ enum State {
 
 signal state_changed(new_state: State)
 signal result_ready(message: String)
+signal round_won(
+	score: int,
+	time_seconds: float,
+	trips: int,
+	tags: int,
+	breath_failures: int,
+	best_score: int,
+	round_number: int
+)
 
 const BALL_SPAWN_OFFSET: Vector2 = Vector2(60.0, -40.0)
 const DEPOSIT_INTERVAL: float = 0.28
@@ -28,10 +37,14 @@ var _stone_trail: StoneTrail = null
 var _rebuild_zone: RebuildZone = null
 var _breath_meter: BreathMeter = null
 var _defender: GullyDefender = null
+var _score_manager: ScoreManager = null
 var _player_start_position: Vector2 = Vector2.ZERO
 var _depositing: bool = false
 var _deposit_countdown: float = 0.0
 var _rebuild_countdown: float = 0.0
+var _trip_stone_count: int = 0
+var _trip_breath_ratio: float = 1.0
+var _victory_active: bool = false
 
 
 func _ready() -> void:
@@ -45,7 +58,8 @@ func setup(
 	stone_trail: StoneTrail,
 	rebuild_zone: RebuildZone,
 	breath_meter: BreathMeter,
-	defender: GullyDefender
+	defender: GullyDefender,
+	score_manager: ScoreManager
 ) -> void:
 	_ball = ball
 	_stone_tower = stone_tower
@@ -54,6 +68,7 @@ func setup(
 	_rebuild_zone = rebuild_zone
 	_breath_meter = breath_meter
 	_defender = defender
+	_score_manager = score_manager
 	_player_start_position = _player_controller.global_position
 
 	_ball.configure(_stone_tower)
@@ -74,6 +89,14 @@ func setup(
 
 
 func request_reset() -> void:
+	if _victory_active:
+		return
+	_enter_ready()
+
+
+func request_next_round() -> void:
+	_victory_active = false
+	_score_manager.advance_round()
 	_enter_ready()
 
 
@@ -109,7 +132,11 @@ func _enter_ready() -> void:
 	_depositing = false
 	_deposit_countdown = 0.0
 	_rebuild_countdown = 0.0
+	_trip_stone_count = 0
+	_trip_breath_ratio = 1.0
 	set_physics_process(false)
+	_score_manager.reset_round_stats()
+	_apply_difficulty()
 	_breath_meter.refill_full()
 	_player_controller.reset_to_start(_player_start_position)
 	_stone_tower.reset_stack()
@@ -119,6 +146,12 @@ func _enter_ready() -> void:
 	_player_controller.set_movement_enabled(true)
 	_change_state(State.READY)
 	result_ready.emit("Drag from the ball to aim, release to throw")
+
+
+func _apply_difficulty() -> void:
+	_defender.chase_speed = _score_manager.get_defender_speed()
+	_defender.grace_duration = _score_manager.get_defender_grace()
+	_breath_meter.breath_duration = _score_manager.get_breath_duration()
 
 
 func _on_ball_aim_started() -> void:
@@ -166,6 +199,7 @@ func _on_tower_scatter_finished() -> void:
 	if current_state != State.BREAK:
 		return
 	_player_controller.set_movement_enabled(true)
+	_score_manager.start_timer()
 	_change_state(State.RAID)
 	result_ready.emit("Stones settled — collect stones and return them to the circle")
 
@@ -199,6 +233,7 @@ func _on_defender_tagged() -> void:
 	_breath_meter.refill_full()
 	_defender.reset_to_spawn()
 	_defender.start_grace()
+	_score_manager.apply_tag_penalty()
 	if current_state == State.RETURN:
 		_change_state(State.RAID)
 	result_ready.emit(
@@ -214,6 +249,8 @@ func _try_start_deposit() -> void:
 	if not _rebuild_zone.is_player_inside():
 		return
 	_depositing = true
+	_trip_stone_count = _stone_trail.get_carried_count()
+	_trip_breath_ratio = _breath_meter.get_ratio()
 	_deposit_countdown = DEPOSIT_INTERVAL * 0.5
 	set_physics_process(true)
 	result_ready.emit("Depositing stones...")
@@ -229,6 +266,7 @@ func _deposit_next_stone() -> void:
 	var piece: StonePiece = _stone_trail.pop_front_stone()
 	if piece != null:
 		_stone_tower.deposit_stone(piece)
+		_score_manager.award_stone_deposited()
 
 	if _stone_trail.get_carried_count() > 0:
 		_deposit_countdown = DEPOSIT_INTERVAL
@@ -236,6 +274,7 @@ func _deposit_next_stone() -> void:
 
 	_depositing = false
 	_breath_meter.refill_full()
+	_score_manager.award_trip_completed(_trip_stone_count, _trip_breath_ratio)
 	if _stone_tower.get_deposited_count() >= StoneTower.STONE_COUNT:
 		_enter_rebuild()
 	else:
@@ -255,6 +294,7 @@ func _on_breath_expired() -> void:
 	_player_controller.global_position = _rebuild_zone.global_position
 	_player_controller.velocity = Vector2.ZERO
 	_breath_meter.refill_full()
+	_score_manager.apply_breath_failure_penalty()
 	if current_state == State.RETURN:
 		_change_state(State.RAID)
 	result_ready.emit("Out of breath! Stones dropped — recover and raid again")
@@ -270,8 +310,21 @@ func _enter_rebuild() -> void:
 
 func _enter_result_success() -> void:
 	set_physics_process(false)
+	_player_controller.set_movement_enabled(false)
+	_score_manager.stop_timer()
+	_score_manager.award_completion_bonus()
+	_victory_active = true
 	_change_state(State.RESULT)
-	result_ready.emit("Lagori! Tower rebuilt — press Reset or R to play again")
+	result_ready.emit("Lagori! Tower rebuilt!")
+	round_won.emit(
+		_score_manager.score,
+		_score_manager.get_elapsed_time(),
+		_score_manager.get_trip_count(),
+		_score_manager.get_tag_count(),
+		_score_manager.get_breath_failure_count(),
+		_score_manager.session_best_score,
+		_score_manager.round_number
+	)
 
 
 func get_state_name() -> String:
