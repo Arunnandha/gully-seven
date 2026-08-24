@@ -21,6 +21,8 @@ const SPAWN_CANDIDATES: Array[Vector2] = [
 @export_range(10.0, 120.0, 1.0) var tag_distance: float = 48.0
 @export_range(0.0, 5.0, 0.1) var grace_duration: float = 1.5
 
+@onready var _defender_visual: GullyDefenderVisual = $DefenderVisual
+
 var _player: GullyPlayerController = null
 var _rebuild_zone: RebuildZone = null
 var _chase_active: bool = false
@@ -40,6 +42,10 @@ func _ready() -> void:
 func setup(player: GullyPlayerController, rebuild_zone: RebuildZone) -> void:
 	_player = player
 	_rebuild_zone = rebuild_zone
+
+
+func apply_theme(arena_theme: ArenaTheme) -> void:
+	_defender_visual.apply_theme(arena_theme)
 
 
 func set_chase_enabled(enabled: bool) -> void:
@@ -94,6 +100,8 @@ func _physics_process(delta: float) -> void:
 	velocity = velocity.move_toward(desired_velocity, chase_acceleration * delta)
 	global_position += velocity * delta
 	_keep_inside_viewport()
+	if velocity.length_squared() > 100.0:
+		_defender_visual.set_facing_direction(velocity)
 
 	if (
 		not player_safe
@@ -119,7 +127,9 @@ func _pick_spawn_position() -> Vector2:
 
 
 func _apply_grace_visual() -> void:
-	modulate.a = GRACE_ALPHA if _grace_remaining > 0.0 else 1.0
+	var active: bool = _grace_remaining > 0.0
+	modulate.a = GRACE_ALPHA if active else 1.0
+	_defender_visual.set_grace_active(active)
 
 
 func _keep_inside_viewport() -> void:

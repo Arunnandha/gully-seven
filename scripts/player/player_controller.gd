@@ -13,6 +13,7 @@ const PLAYER_RADIUS: float = 28.0
 @export_range(0.1, 1.0, 0.01) var minimum_speed_multiplier: float = 0.5
 
 @onready var _joystick_visual: GullyJoystickVisual = $JoystickLayer/JoystickVisual
+@onready var _player_visual: GullyPlayerVisual = $PlayerVisual
 
 var _active_touch_index: int = NO_TOUCH
 var _mouse_drag_active: bool = false
@@ -46,6 +47,18 @@ func reset_to_start(start_position: Vector2) -> void:
 
 func set_carried_stone_count(count: int) -> void:
 	_carried_stone_count = maxi(count, 0)
+
+
+func apply_theme(arena_theme: ArenaTheme) -> void:
+	_player_visual.apply_theme(arena_theme)
+
+
+func play_pulse() -> void:
+	_player_visual.pulse()
+
+
+func reset_visual_feedback() -> void:
+	_player_visual.reset_pulse()
 
 
 func _get_effective_maximum_speed() -> float:
@@ -84,6 +97,8 @@ func _physics_process(delta: float) -> void:
 	velocity = velocity.move_toward(target_velocity, change_rate * delta)
 	move_and_slide()
 	_keep_inside_gameplay_area()
+	if velocity.length_squared() > 100.0:
+		_player_visual.set_facing_direction(velocity)
 
 
 func _handle_screen_touch(event: InputEventScreenTouch) -> void:

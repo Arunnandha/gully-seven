@@ -17,6 +17,7 @@ const MIN_THROW_SPEED: float = 260.0
 const MAX_THROW_SPEED: float = 900.0
 
 @onready var _aim_visual: GullyAimVisual = $AimLayer/AimVisual
+@onready var _ball_visual: GullyBallVisual = $BallVisual
 
 var aiming_enabled: bool = true
 var is_traveling: bool = false
@@ -36,6 +37,10 @@ func _ready() -> void:
 
 func configure(stone_tower: StoneTower) -> void:
 	_stone_tower = stone_tower
+
+
+func apply_theme(arena_theme: ArenaTheme) -> void:
+	_ball_visual.apply_theme(arena_theme)
 
 
 func reset_to_start(start_position: Vector2) -> void:

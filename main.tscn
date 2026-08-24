@@ -1,11 +1,11 @@
-[gd_scene load_steps=7 format=3 uid="uid://dkvaj6optaj87"]
+[gd_scene load_steps=13 format=3 uid="uid://dkvaj6optaj87"]
 
 [ext_resource type="Script" uid="uid://dtyyakq181nbo" path="res://main.gd" id="1_ig7tw"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/stone_tower.tscn" id="3_tower"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/throw_ball.tscn" id="4_ball"]
 [ext_resource type="Script" path="res://scripts/gameplay/round_controller.gd" id="5_round"]
-[ext_resource type="Script" path="res://scripts/presentation/impact_effect.gd" id="6_impact"]
+[ext_resource type="Script" path="res://scripts/presentation/arena_backdrop.gd" id="6_backdrop"]
 [ext_resource type="Script" path="res://scripts/gameplay/stone_trail.gd" id="7_trail"]
 [ext_resource type="Script" path="res://scripts/gameplay/rebuild_zone.gd" id="8_zone"]
 [ext_resource type="Script" path="res://scripts/gameplay/breath_meter.gd" id="9_breath"]
@@ -13,13 +13,57 @@
 [ext_resource type="PackedScene" path="res://scenes/gameplay/defender.tscn" id="11_defender"]
 [ext_resource type="Script" path="res://scripts/gameplay/score_manager.gd" id="12_score"]
 [ext_resource type="Script" path="res://scripts/presentation/result_overlay.gd" id="13_overlay"]
+[ext_resource type="Script" path="res://scripts/presentation/effect_pool.gd" id="14_effectpool"]
+[ext_resource type="Script" path="res://scripts/presentation/screen_shake.gd" id="15_shake"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
+bg_color = Color(0.12, 0.08, 0.05, 0.62)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.16, 0.10, 0.07, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.65, 0.35, 0.65)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_reset"]
+bg_color = Color(0.32, 0.15, 0.10, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.90, 0.70, 0.40, 0.8)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_playagain"]
+bg_color = Color(0.82, 0.42, 0.14, 1.0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.98, 0.80, 0.55, 0.85)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
 
 [node name="Main" type="Node2D" unique_id=1514691895]
 script = ExtResource("1_ig7tw")
 
-[node name="PlaygroundBackground" type="ColorRect" parent="."]
-mouse_filter = 2
-color = Color(0.70, 0.45, 0.25, 1)
+[node name="ArenaBackdrop" type="Node2D" parent="."]
+script = ExtResource("6_backdrop")
 
 [node name="RebuildZone" type="Node2D" parent="."]
 script = ExtResource("8_zone")
@@ -45,115 +89,168 @@ script = ExtResource("9_breath")
 [node name="ScoreManager" type="Node" parent="."]
 script = ExtResource("12_score")
 
-[node name="ImpactEffect" type="Node2D" parent="."]
+[node name="EffectPool" type="Node2D" parent="."]
 z_index = 20
-script = ExtResource("6_impact")
+script = ExtResource("14_effectpool")
+
+[node name="ScreenShake" type="Node" parent="."]
+script = ExtResource("15_shake")
+
+[node name="WorldDim" type="ColorRect" parent="."]
+visible = false
+z_index = 30
+mouse_filter = 2
+color = Color(0.05, 0.04, 0.03, 0.55)
 
 [node name="UI" type="CanvasLayer" parent="."]
 layer = 10
 
-[node name="FPSLabel" type="Label" parent="UI"]
+[node name="TopLeftPanel" type="Panel" parent="UI"]
 offset_left = 16.0
 offset_top = 14.0
-offset_right = 140.0
-offset_bottom = 42.0
+offset_right = 208.0
+offset_bottom = 92.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 18
-text = "FPS: --"
+theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
 
-[node name="ControlsLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 46.0
-offset_right = 640.0
-offset_bottom = 74.0
+[node name="Margin" type="MarginContainer" parent="UI/TopLeftPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="Content" type="VBoxContainer" parent="UI/TopLeftPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="RoundLabel" type="Label" parent="UI/TopLeftPanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.95, 0.92, 1)
 theme_override_font_sizes/font_size = 16
-text = "Touch or left-drag to move | WASD / arrow keys"
+text = "ROUND 1"
 
-[node name="StateLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 78.0
-offset_right = 480.0
-offset_bottom = 106.0
+[node name="ScoreLabel" type="Label" parent="UI/TopLeftPanel/Margin/Content"]
+layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.82, 1, 0.92, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 16
-text = "State: READY"
+theme_override_colors/font_color = Color(1, 0.82, 0.38, 1)
+theme_override_font_sizes/font_size = 26
+text = "SCORE 0"
 
-[node name="ResultLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 110.0
-offset_right = 560.0
-offset_bottom = 138.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 0.92, 0.75, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 16
-text = "Drag from the ball to aim, release to throw"
-
-[node name="StonesLabel" type="Label" parent="UI"]
-offset_left = 16.0
-offset_top = 142.0
-offset_right = 420.0
-offset_bottom = 170.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 0.86, 0.55, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 18
-text = "Carried: 0   Rebuilt: 0/7"
-
-[node name="RoundLabel" type="Label" parent="UI"]
+[node name="TopRightPanel" type="Panel" parent="UI"]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -220.0
+offset_left = -208.0
 offset_top = 14.0
 offset_right = -16.0
-offset_bottom = 42.0
+offset_bottom = 92.0
 mouse_filter = 2
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.82, 1, 0.92, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 18
-text = "Round 1"
+theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
 
-[node name="ScoreLabel" type="Label" parent="UI"]
-anchors_preset = 1
-anchor_left = 1.0
+[node name="Margin" type="MarginContainer" parent="UI/TopRightPanel"]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
-offset_left = -220.0
-offset_top = 46.0
-offset_right = -16.0
-offset_bottom = 78.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="Content" type="VBoxContainer" parent="UI/TopRightPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="CarriedLabel" type="Label" parent="UI/TopRightPanel/Margin/Content"]
+layout_mode = 2
 mouse_filter = 2
 horizontal_alignment = 2
-theme_override_colors/font_color = Color(1, 0.86, 0.55, 1)
-theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 22
-text = "Score: 0"
+theme_override_colors/font_color = Color(0.85, 0.95, 0.92, 1)
+theme_override_font_sizes/font_size = 18
+text = "CARRIED 0"
+
+[node name="RebuiltLabel" type="Label" parent="UI/TopRightPanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.38, 1)
+theme_override_font_sizes/font_size = 18
+text = "REBUILT 0/7"
 
 [node name="BreathBar" type="Control" parent="UI"]
 visible = false
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -160.0
-offset_top = 12.0
-offset_right = 160.0
-offset_bottom = 52.0
+offset_left = -175.0
+offset_top = 14.0
+offset_right = 175.0
+offset_bottom = 68.0
 mouse_filter = 2
 script = ExtResource("10_breathbar")
+
+[node name="MessagePanel" type="Panel" parent="UI"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -112.0
+offset_right = 460.0
+offset_bottom = -16.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
+
+[node name="Margin" type="MarginContainer" parent="UI/MessagePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="Content" type="VBoxContainer" parent="UI/MessagePanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="ControlsLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92, 0.90, 0.86, 0.95)
+theme_override_font_sizes/font_size = 14
+text = "Touch or left-drag to move | WASD / arrow keys"
+
+[node name="ResultLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Drag from the ball to aim, release to throw"
+
+[node name="DebugLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.55)
+theme_override_font_sizes/font_size = 12
+text = "FPS: -- | State: READY"
 
 [node name="ResetButton" type="Button" parent="UI"]
 anchors_preset = 3
@@ -161,12 +258,13 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -156.0
-offset_top = -88.0
-offset_right = -24.0
-offset_bottom = -24.0
-theme_override_font_sizes/font_size = 20
-text = "Reset"
+offset_left = -136.0
+offset_top = -68.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 18
+text = "RESET"
 
 [node name="ResultOverlay" type="Control" parent="UI"]
 visible = false
@@ -177,15 +275,6 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("13_overlay")
 
-[node name="Dim" type="ColorRect" parent="UI/ResultOverlay"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.05, 0.04, 0.03, 0.72)
-
 [node name="Card" type="PanelContainer" parent="UI/ResultOverlay"]
 anchors_preset = 8
 anchor_left = 0.5
@@ -194,75 +283,143 @@ anchor_right = 0.5
 anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
-custom_minimum_size = Vector2(460, 0)
+custom_minimum_size = Vector2(420, 0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
 [node name="Margin" type="MarginContainer" parent="UI/ResultOverlay/Card"]
 layout_mode = 2
-theme_override_constants/margin_left = 28
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 28
-theme_override_constants/margin_bottom = 24
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 22
 
 [node name="Content" type="VBoxContainer" parent="UI/ResultOverlay/Card/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="TitleLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 30
-text = "Tower Rebuilt!"
+theme_override_colors/font_color = Color(0.98, 0.90, 0.78, 1)
+theme_override_font_sizes/font_size = 28
+text = "TOWER REBUILT!"
 
 [node name="RoundLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Round 1 cleared"
+theme_override_colors/font_color = Color(0.80, 0.72, 0.64, 1)
+theme_override_font_sizes/font_size = 14
+text = "ROUND 1 COMPLETE"
 
 [node name="HSeparator1" type="HSeparator" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 
-[node name="ScoreLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
+[node name="ScoreCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 22
-text = "Final Score: 0"
+theme_override_colors/font_color = Color(0.80, 0.72, 0.64, 1)
+theme_override_font_sizes/font_size = 13
+text = "FINAL SCORE"
 
-[node name="TimeLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
+[node name="ScoreValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Total Time: 0:00"
-
-[node name="TripsLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Trips / Deposits: 0"
-
-[node name="TagsLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Defender Tags: 0"
-
-[node name="BreathFailuresLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Breath Failures: 0"
-
-[node name="BestScoreLabel" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-text = "Best Score (session): 0"
+theme_override_colors/font_color = Color(1, 0.80, 0.35, 1)
+theme_override_font_sizes/font_size = 32
+text = "0"
 
 [node name="HSeparator2" type="HSeparator" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 
+[node name="StatsGrid" type="GridContainer" parent="UI/ResultOverlay/Card/Margin/Content"]
+layout_mode = 2
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="TimeCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "TIME"
+
+[node name="TimeValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0:00"
+
+[node name="TripsCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "TRIPS"
+
+[node name="TripsValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0"
+
+[node name="TagsCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "TAGS"
+
+[node name="TagsValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0"
+
+[node name="BreathCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "BREATH FAILS"
+
+[node name="BreathValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0"
+
+[node name="HSeparator3" type="HSeparator" parent="UI/ResultOverlay/Card/Margin/Content"]
+layout_mode = 2
+
+[node name="BestRow" type="HBoxContainer" parent="UI/ResultOverlay/Card/Margin/Content"]
+layout_mode = 2
+
+[node name="BestCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/BestRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 16
+text = "BEST"
+
+[node name="BestValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/BestRow"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(1, 0.80, 0.35, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="ButtonSpacer" type="Control" parent="UI/ResultOverlay/Card/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 6)
+
 [node name="PlayAgainButton" type="Button" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 64)
-theme_override_font_sizes/font_size = 24
-text = "Play Again"
+custom_minimum_size = Vector2(0, 58)
+theme_override_styles/normal = SubResource("StyleBoxFlat_playagain")
+theme_override_font_sizes/font_size = 22
+text = "PLAY AGAIN"

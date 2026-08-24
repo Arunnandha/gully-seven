@@ -5,12 +5,12 @@ extends Control
 signal play_again_pressed
 
 @onready var _round_label: Label = $Card/Margin/Content/RoundLabel
-@onready var _score_label: Label = $Card/Margin/Content/ScoreLabel
-@onready var _time_label: Label = $Card/Margin/Content/TimeLabel
-@onready var _trips_label: Label = $Card/Margin/Content/TripsLabel
-@onready var _tags_label: Label = $Card/Margin/Content/TagsLabel
-@onready var _breath_label: Label = $Card/Margin/Content/BreathFailuresLabel
-@onready var _best_label: Label = $Card/Margin/Content/BestScoreLabel
+@onready var _score_value: Label = $Card/Margin/Content/ScoreValue
+@onready var _time_value: Label = $Card/Margin/Content/StatsGrid/TimeValue
+@onready var _trips_value: Label = $Card/Margin/Content/StatsGrid/TripsValue
+@onready var _tags_value: Label = $Card/Margin/Content/StatsGrid/TagsValue
+@onready var _breath_value: Label = $Card/Margin/Content/StatsGrid/BreathValue
+@onready var _best_value: Label = $Card/Margin/Content/BestRow/BestValue
 @onready var _play_again_button: Button = $Card/Margin/Content/PlayAgainButton
 
 
@@ -29,13 +29,13 @@ func show_result(
 	best_score: int,
 	round_number: int
 ) -> void:
-	_round_label.text = "Round %d cleared" % round_number
-	_score_label.text = "Final Score: %d" % score
-	_time_label.text = "Total Time: %s" % _format_time(time_seconds)
-	_trips_label.text = "Trips / Deposits: %d" % trips
-	_tags_label.text = "Defender Tags: %d" % tags
-	_breath_label.text = "Breath Failures: %d" % breath_failures
-	_best_label.text = "Best Score (session): %d" % best_score
+	_round_label.text = "ROUND %d COMPLETE" % round_number
+	_score_value.text = "%d" % score
+	_time_value.text = _format_time(time_seconds)
+	_trips_value.text = "%d" % trips
+	_tags_value.text = "%d" % tags
+	_breath_value.text = "%d" % breath_failures
+	_best_value.text = "%d" % best_score
 	visible = true
 
 

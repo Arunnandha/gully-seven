@@ -46,6 +46,7 @@ var _deposited_pieces: Array[StonePieceType] = []
 var _scatter_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _settled_piece_count: int = 0
 var _scatter_active: bool = false
+var _arena_theme: ArenaTheme = null
 
 
 func _ready() -> void:
@@ -54,6 +55,12 @@ func _ready() -> void:
 	set_process(false)
 	set_physics_process(false)
 	set_process_input(false)
+
+
+func apply_theme(arena_theme: ArenaTheme) -> void:
+	_arena_theme = arena_theme
+	for piece: StonePieceType in _pieces:
+		piece.apply_theme(_arena_theme)
 
 
 func reset_stack() -> void:
@@ -195,6 +202,8 @@ func _create_stone_pieces() -> void:
 			stack_index,
 			_get_stack_position(stack_index)
 		)
+		if _arena_theme != null:
+			piece.apply_theme(_arena_theme)
 
 
 func _on_stone_settled(_piece: StonePieceType) -> void:
@@ -262,16 +271,16 @@ func _get_stack_position(stack_index: int) -> Vector2:
 func _get_stone_color(stack_index: int) -> Color:
 	match stack_index:
 		0:
-			return Color(0.43, 0.29, 0.18, 1.0)
+			return Color(0.36, 0.24, 0.15, 1.0)
 		1:
-			return Color(0.52, 0.35, 0.20, 1.0)
+			return Color(0.64, 0.33, 0.18, 1.0)
 		2:
-			return Color(0.58, 0.39, 0.23, 1.0)
+			return Color(0.74, 0.55, 0.24, 1.0)
 		3:
-			return Color(0.49, 0.32, 0.24, 1.0)
+			return Color(0.44, 0.36, 0.52, 1.0)
 		4:
-			return Color(0.62, 0.44, 0.28, 1.0)
+			return Color(0.36, 0.46, 0.30, 1.0)
 		5:
-			return Color(0.55, 0.38, 0.29, 1.0)
+			return Color(0.78, 0.42, 0.30, 1.0)
 		_:
-			return Color(0.68, 0.50, 0.33, 1.0)
+			return Color(0.20, 0.58, 0.56, 1.0)

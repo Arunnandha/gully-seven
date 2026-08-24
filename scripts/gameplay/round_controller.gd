@@ -23,6 +23,10 @@ signal round_won(
 	best_score: int,
 	round_number: int
 )
+signal ball_thrown_effect(effect_position: Vector2)
+signal stone_deposited_effect(effect_position: Vector2)
+signal player_tagged_effect(effect_position: Vector2)
+signal breath_expired_effect(effect_position: Vector2)
 
 const BALL_SPAWN_OFFSET: Vector2 = Vector2(60.0, -40.0)
 const DEPOSIT_INTERVAL: float = 0.28
@@ -173,6 +177,7 @@ func _on_ball_thrown(_direction: Vector2, _power: float) -> void:
 		return
 	_ball.aiming_enabled = false
 	_player_controller.set_movement_enabled(false)
+	ball_thrown_effect.emit(_ball.global_position)
 	result_ready.emit("Ball in flight...")
 
 
@@ -227,6 +232,7 @@ func _on_defender_tagged() -> void:
 		return
 
 	var had_stones: bool = _stone_trail.get_carried_count() > 0
+	player_tagged_effect.emit(_player_controller.global_position)
 	_stone_trail.drop_all_stones()
 	_player_controller.global_position = _rebuild_zone.global_position
 	_player_controller.velocity = Vector2.ZERO
@@ -267,6 +273,7 @@ func _deposit_next_stone() -> void:
 	if piece != null:
 		_stone_tower.deposit_stone(piece)
 		_score_manager.award_stone_deposited()
+		stone_deposited_effect.emit(_rebuild_zone.global_position)
 
 	if _stone_trail.get_carried_count() > 0:
 		_deposit_countdown = DEPOSIT_INTERVAL
@@ -290,6 +297,7 @@ func _on_breath_expired() -> void:
 
 	# Drop first so the pieces are SCATTERED before the RAID transition
 	# re-arms collection, then move the player home and refill.
+	breath_expired_effect.emit(_player_controller.global_position)
 	_stone_trail.drop_all_stones()
 	_player_controller.global_position = _rebuild_zone.global_position
 	_player_controller.velocity = Vector2.ZERO

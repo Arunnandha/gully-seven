@@ -12,7 +12,6 @@ enum State {
 signal stone_settled(piece: StonePiece)
 signal stone_collected(piece: StonePiece)
 
-const OUTLINE_COLOR: Color = Color(0.16, 0.10, 0.06, 1.0)
 const SCATTER_FRICTION: float = 360.0
 const ANGULAR_FRICTION: float = 5.0
 const SETTLE_SPEED: float = 18.0
@@ -20,6 +19,10 @@ const SETTLE_ANGULAR_SPEED: float = 0.25
 const PICKUP_PULSE_SCALE: float = 1.35
 const PICKUP_PULSE_UP_DURATION: float = 0.08
 const PICKUP_PULSE_DOWN_DURATION: float = 0.14
+const SHADOW_OFFSET_RATIO: float = 0.12
+const SHADOW_SCALE_RATIO: float = 0.88
+const SAFE_RING_WIDTH: float = 2.5
+const SAFE_RING_MARGIN: float = 4.0
 
 @export var stone_size: Vector2 = Vector2(118.0, 30.0)
 @export var stone_color: Color = Color(0.50, 0.35, 0.22, 1.0)
@@ -34,6 +37,10 @@ var _scatter_angular_velocity: float = 0.0
 var _viewport_size: Vector2 = Vector2.ZERO
 var _scatter_active: bool = false
 var _pickup_tween: Tween = null
+var _outline_color: Color = Color(0.16, 0.10, 0.06, 1.0)
+var _highlight_color: Color = Color(1.0, 0.95, 0.85, 0.30)
+var _shadow_color: Color = Color(0.10, 0.06, 0.03, 0.30)
+var _safe_ring_color: Color = Color(0.98, 0.92, 0.75, 0.85)
 
 
 func _ready() -> void:
@@ -60,6 +67,14 @@ func configure(
 	queue_redraw()
 
 
+func apply_theme(arena_theme: ArenaTheme) -> void:
+	_outline_color = arena_theme.stone_outline_color
+	_highlight_color = arena_theme.stone_highlight_color
+	_shadow_color = arena_theme.object_shadow_color
+	_safe_ring_color = arena_theme.stone_safe_ring_color
+	queue_redraw()
+
+
 func reset_to_stack() -> void:
 	set_physics_process(false)
 	_scatter_active = false
@@ -73,6 +88,7 @@ func reset_to_stack() -> void:
 	rotation = 0.0
 	scale = Vector2.ONE
 	current_state = State.STACKED
+	queue_redraw()
 
 
 func is_collectible() -> bool:
@@ -94,6 +110,7 @@ func drop_scattered(drop_position: Vector2) -> void:
 	top_level = true
 	global_position = drop_position
 	current_state = State.SCATTERED
+	queue_redraw()
 
 
 func deposit_to_stack() -> void:
@@ -106,6 +123,7 @@ func deposit_to_stack() -> void:
 	rotation = 0.0
 	scale = Vector2.ONE
 	current_state = State.DEPOSITED
+	queue_redraw()
 	play_pickup_feedback()
 
 
@@ -126,6 +144,7 @@ func _on_body_entered(body: Node2D) -> void:
 		return
 	current_state = State.CARRIED
 	set_deferred("monitoring", false)
+	queue_redraw()
 	play_pickup_feedback()
 	stone_collected.emit(self)
 
@@ -139,6 +158,7 @@ func start_scatter(initial_velocity: Vector2, initial_angular_velocity: float) -
 	_scatter_angular_velocity = initial_angular_velocity
 	_scatter_active = true
 	set_physics_process(true)
+	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
@@ -240,6 +260,28 @@ func _apply_collision_size() -> void:
 
 func _draw() -> void:
 	var vertical_scale: float = stone_size.y / stone_size.x
+	_draw_shadow(vertical_scale)
+
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, vertical_scale))
 	draw_circle(Vector2.ZERO, stone_size.x * 0.5, stone_color, true, -1.0, true)
-	draw_circle(Vector2.ZERO, stone_size.x * 0.5, OUTLINE_COLOR, false, 3.0, true)
+	draw_circle(Vector2.ZERO, stone_size.x * 0.5, _outline_color, false, 3.0, true)
+	draw_circle(
+		Vector2(-stone_size.x * 0.18, -stone_size.x * 0.18),
+		stone_size.x * 0.22,
+		_highlight_color,
+		true,
+		-1.0,
+		true
+	)
+	if current_state == State.STACKED or current_state == State.DEPOSITED:
+		draw_circle(
+			Vector2.ZERO, stone_size.x * 0.5 + SAFE_RING_MARGIN, _safe_ring_color, false, SAFE_RING_WIDTH, true
+		)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_shadow(vertical_scale: float) -> void:
+	var shadow_scale: Vector2 = Vector2(SHADOW_SCALE_RATIO, vertical_scale * SHADOW_SCALE_RATIO * 0.85)
+	draw_set_transform(Vector2(0.0, stone_size.x * SHADOW_OFFSET_RATIO), 0.0, shadow_scale)
+	draw_circle(Vector2.ZERO, stone_size.x * 0.5, _shadow_color, true, -1.0, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
