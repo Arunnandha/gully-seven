@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/presentation/result_overlay.gd" id="13_overlay"]
 [ext_resource type="Script" path="res://scripts/presentation/effect_pool.gd" id="14_effectpool"]
 [ext_resource type="Script" path="res://scripts/presentation/screen_shake.gd" id="15_shake"]
+[ext_resource type="Script" path="res://scripts/audio/feedback_manager.gd" id="16_feedback"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
 bg_color = Color(0.09, 0.06, 0.04, 0.88)
@@ -98,6 +99,9 @@ script = ExtResource("14_effectpool")
 
 [node name="ScreenShake" type="Node" parent="."]
 script = ExtResource("15_shake")
+
+[node name="FeedbackManager" type="Node" parent="."]
+script = ExtResource("16_feedback")
 
 [node name="WorldDim" type="ColorRect" parent="."]
 visible = false

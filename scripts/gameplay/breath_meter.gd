@@ -3,12 +3,20 @@ extends Node
 
 
 signal breath_expired
+signal breath_warning
+
+# Hysteresis keeps the warning a single discrete edge-trigger: it fires once
+# on the way down past WARNING_THRESHOLD and only re-arms once breath has
+# climbed back past the (higher) rearm threshold, so it can never chatter.
+const WARNING_THRESHOLD: float = 0.30
+const WARNING_REARM_THRESHOLD: float = 0.45
 
 @export_range(1.0, 60.0, 0.5) var breath_duration: float = 15.0
 @export_range(0.2, 10.0, 0.1) var refill_duration: float = 1.2
 
 var _rebuild_zone: RebuildZone = null
 var _ratio: float = 1.0
+var _warning_armed: bool = true
 
 
 func _ready() -> void:
@@ -28,17 +36,23 @@ func get_ratio() -> float:
 
 func refill_full() -> void:
 	_ratio = 1.0
+	_warning_armed = true
 
 
 func _physics_process(delta: float) -> void:
 	if _rebuild_zone.is_player_inside():
 		_ratio = minf(_ratio + delta / refill_duration, 1.0)
+		if _ratio >= WARNING_REARM_THRESHOLD:
+			_warning_armed = true
 		return
 
 	if _ratio <= 0.0:
 		return
 
 	_ratio = maxf(_ratio - delta / breath_duration, 0.0)
+	if _warning_armed and _ratio <= WARNING_THRESHOLD and _ratio > 0.0:
+		_warning_armed = false
+		breath_warning.emit()
 	if _ratio <= 0.0:
 		breath_expired.emit()
 

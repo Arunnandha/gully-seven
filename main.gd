@@ -30,6 +30,7 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _score_manager: ScoreManager = $ScoreManager
 @onready var _effect_pool: EffectPool = $EffectPool
 @onready var _screen_shake: ScreenShake = $ScreenShake
+@onready var _feedback: FeedbackManager = $FeedbackManager
 @onready var _world_dim: ColorRect = $WorldDim
 @onready var _breath_bar: BreathBar = $UI/BreathBar
 @onready var _controls_label: Label = $UI/InstructionsPanel/Margin/Content/ControlsLabel
@@ -63,6 +64,7 @@ func _ready() -> void:
 	_round_controller.stone_deposited_effect.connect(_on_stone_deposited_effect)
 	_round_controller.player_tagged_effect.connect(_on_player_tagged_effect)
 	_round_controller.breath_expired_effect.connect(_on_breath_expired_effect)
+	_breath_meter.breath_warning.connect(_on_breath_warning)
 	_stone_tower.tower_scatter_started.connect(_on_tower_scatter_started)
 	_stone_tower.deposited_count_changed.connect(_on_deposited_count_changed)
 	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
@@ -122,6 +124,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _on_reset_button_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
 	_round_controller.request_reset()
 
 
@@ -146,9 +149,11 @@ func _on_round_won(
 	_world_dim.visible = true
 	_effect_pool.play(EffectPool.Kind.TOWER_COMPLETE, _stone_tower.global_position)
 	_screen_shake.shake(COMPLETION_SHAKE)
+	_feedback.trigger(FeedbackManager.Event.TOWER_COMPLETE)
 
 
 func _on_play_again_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
 	_result_overlay.hide_result()
 	_world_dim.visible = false
 	_round_controller.request_next_round()
@@ -156,25 +161,34 @@ func _on_play_again_pressed() -> void:
 
 func _on_ball_thrown_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.BALL_RELEASE, effect_position)
+	_feedback.trigger(FeedbackManager.Event.BALL_RELEASE)
 
 
 func _on_stone_collected_effect(piece: StonePiece) -> void:
 	_effect_pool.play(EffectPool.Kind.STONE_COLLECT, piece.global_position)
 	_player.play_pulse()
+	_feedback.trigger(FeedbackManager.Event.STONE_PICKUP)
 
 
 func _on_stone_deposited_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.STONE_DEPOSIT, effect_position)
 	_player.play_pulse()
+	_feedback.trigger(FeedbackManager.Event.STONE_DEPOSIT)
 
 
 func _on_player_tagged_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.DEFENDER_TAG, effect_position)
 	_screen_shake.shake(TAG_SHAKE)
+	_feedback.trigger(FeedbackManager.Event.DEFENDER_TAG)
 
 
 func _on_breath_expired_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.BREATH_FAIL, effect_position)
+	_feedback.trigger(FeedbackManager.Event.BREATH_FAILURE)
+
+
+func _on_breath_warning() -> void:
+	_feedback.trigger(FeedbackManager.Event.BREATH_WARNING)
 
 
 func _on_round_result_ready(message: String) -> void:
@@ -212,6 +226,7 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 		_effect_pool.stop_all()
 		_screen_shake.stop()
 		_player.reset_visual_feedback()
+		_feedback.stop_active_sounds()
 
 
 func _get_controls_text(state: RoundController.State) -> String:
@@ -233,6 +248,7 @@ func _get_controls_text(state: RoundController.State) -> String:
 func _on_tower_scatter_started(impact_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.TOWER_IMPACT, impact_position)
 	_screen_shake.shake(TOWER_IMPACT_SHAKE)
+	_feedback.trigger(FeedbackManager.Event.TOWER_IMPACT)
 
 
 func _process(delta: float) -> void:
