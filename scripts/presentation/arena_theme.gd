@@ -6,8 +6,18 @@ enum DecorStyle {
 	VILLAGE,
 }
 
+@export var theme_id: String = "village_courtyard"
 @export var theme_name: String = "Village Courtyard"
 @export var decor_style: DecorStyle = DecorStyle.VILLAGE
+
+@export_group("Background")
+# When set, this photographic background replaces every code-drawn ground
+# fill/texture/edge decoration below. Boundary and rebuild-circle stay
+# code-drawn regardless, so gameplay markings are always crisp and themeable.
+@export var background_texture: Texture2D = null
+# Alpha 0 disables the tint; a low alpha darkens/cools the photo backdrop so
+# gameplay objects keep enough contrast without touching the source image.
+@export var ground_tint_color: Color = Color(0.0, 0.0, 0.0, 0.0)
 
 @export_group("Ground")
 @export var ground_color: Color = Color(0.72, 0.46, 0.26, 1.0)

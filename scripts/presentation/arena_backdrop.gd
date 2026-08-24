@@ -31,6 +31,8 @@ const TREE_SHADOW_SPOTS: Array[Vector2] = [
 
 var _theme: ArenaTheme = null
 var _viewport_size: Vector2 = Vector2.ZERO
+var _background_texture: Texture2D = null
+var _background_draw_rect: Rect2 = Rect2()
 
 var _dot_positions: PackedVector2Array = PackedVector2Array()
 var _dot_variants: PackedFloat32Array = PackedFloat32Array()
@@ -50,6 +52,8 @@ func _ready() -> void:
 
 func setup(arena_theme: ArenaTheme) -> void:
 	_theme = arena_theme
+	_background_texture = arena_theme.background_texture
+	_recompute_background_rect()
 	queue_redraw()
 
 
@@ -57,7 +61,28 @@ func set_viewport_size(viewport_size: Vector2) -> void:
 	if viewport_size == _viewport_size:
 		return
 	_viewport_size = viewport_size
+	_recompute_background_rect()
 	queue_redraw()
+
+
+# "Cover" scaling: the single largest axis-uniform scale that makes the
+# texture fully span the viewport on both axes, then centers it — excess
+# spills past the viewport edges and is naturally clipped at render time.
+# Only recomputed here (setup/resize), never per frame.
+func _recompute_background_rect() -> void:
+	if _background_texture == null or _viewport_size == Vector2.ZERO:
+		_background_draw_rect = Rect2()
+		return
+	var texture_size: Vector2 = _background_texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		_background_draw_rect = Rect2()
+		return
+	var cover_scale: float = maxf(
+		_viewport_size.x / texture_size.x, _viewport_size.y / texture_size.y
+	)
+	var drawn_size: Vector2 = texture_size * cover_scale
+	var offset: Vector2 = (_viewport_size - drawn_size) * 0.5
+	_background_draw_rect = Rect2(offset, drawn_size)
 
 
 func _generate_ground_pattern() -> void:
@@ -103,13 +128,29 @@ func _draw() -> void:
 	if _theme == null or _viewport_size == Vector2.ZERO:
 		return
 
-	_draw_ground()
-	if _theme.decorations_enabled:
-		_draw_tree_shadows()
-	_draw_ground_texture()
-	if _theme.decorations_enabled:
-		_draw_edge_decorations()
+	if _background_texture != null:
+		# Photographic background already contains the ground, house, plants,
+		# kolam and shadows, so none of the code-drawn ground/decor runs here.
+		draw_texture_rect(_background_texture, _background_draw_rect, false)
+		_draw_ground_tint()
+	else:
+		_draw_ground()
+		if _theme.decorations_enabled:
+			_draw_tree_shadows()
+		_draw_ground_texture()
+		if _theme.decorations_enabled:
+			_draw_edge_decorations()
+
 	_draw_boundary()
+
+
+func _draw_ground_tint() -> void:
+	if _theme.ground_tint_color.a <= 0.0:
+		return
+	var full_rect: Rect2 = Rect2(
+		-Vector2.ONE * SHAKE_MARGIN, _viewport_size + Vector2.ONE * SHAKE_MARGIN * 2.0
+	)
+	draw_rect(full_rect, _theme.ground_tint_color, true)
 
 
 func _draw_ground() -> void:

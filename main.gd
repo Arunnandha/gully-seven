@@ -5,6 +5,8 @@ extends Node2D
 
 const FPS_REFRESH_INTERVAL: float = 0.5
 const VILLAGE_COURTYARD_THEME: ArenaTheme = preload("res://resources/themes/village_courtyard.tres")
+const TEMPLE_COURTYARD_THEME: ArenaTheme = preload("res://resources/themes/temple_courtyard.tres")
+const COASTAL_VILLAGE_THEME: ArenaTheme = preload("res://resources/themes/coastal_village.tres")
 
 const TOWER_IMPACT_SHAKE: float = 0.6
 const TAG_SHAKE: float = 0.5
@@ -16,7 +18,7 @@ const WORLD_DIM_MARGIN: float = 40.0
 const TOWER_MARGIN_TARGET: float = 320.0
 const TOWER_MARGIN_FLOOR: float = 40.0
 
-@onready var _arena_backdrop: ArenaBackdrop = $ArenaBackdrop
+@onready var _arena_backdrop: ArenaBackdrop = $BackgroundLayer/ArenaBackdrop
 @onready var _rebuild_zone: RebuildZone = $RebuildZone
 @onready var _stone_tower: StoneTower = $StoneTower
 @onready var _player: GullyPlayerController = $Player
@@ -44,6 +46,7 @@ var _fps_refresh_remaining: float = 0.0
 var _carried_count: int = 0
 var _rebuilt_count: int = 0
 var _current_state_name: String = "READY"
+var _current_theme: ArenaTheme = null
 
 
 func _ready() -> void:
@@ -89,6 +92,7 @@ func _ready() -> void:
 
 
 func _apply_arena_theme(arena_theme: ArenaTheme) -> void:
+	_current_theme = arena_theme
 	_arena_backdrop.setup(arena_theme)
 	_rebuild_zone.apply_theme(arena_theme)
 	_player.apply_theme(arena_theme)
@@ -96,6 +100,24 @@ func _apply_arena_theme(arena_theme: ArenaTheme) -> void:
 	_defender.apply_theme(arena_theme)
 	_stone_tower.apply_theme(arena_theme)
 	_breath_bar.apply_theme(arena_theme)
+	_score_label.add_theme_color_override("font_color", arena_theme.panel_accent_color)
+	_rebuilt_label.add_theme_color_override("font_color", arena_theme.panel_accent_color)
+	_refresh_debug_label()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not debug_display_enabled or not event is InputEventKey:
+		return
+	var key_event: InputEventKey = event as InputEventKey
+	if not key_event.pressed or key_event.echo:
+		return
+	match key_event.keycode:
+		KEY_1:
+			_apply_arena_theme(VILLAGE_COURTYARD_THEME)
+		KEY_2:
+			_apply_arena_theme(TEMPLE_COURTYARD_THEME)
+		KEY_3:
+			_apply_arena_theme(COASTAL_VILLAGE_THEME)
 
 
 func _on_reset_button_pressed() -> void:
@@ -224,7 +246,10 @@ func _refresh_debug_label() -> void:
 	if not debug_display_enabled:
 		return
 	_fps_refresh_remaining = FPS_REFRESH_INTERVAL
-	_debug_label.text = "FPS: %d | State: %s" % [int(Engine.get_frames_per_second()), _current_state_name]
+	var theme_name: String = _current_theme.theme_name if _current_theme != null else "--"
+	_debug_label.text = "FPS: %d | State: %s | Theme: %s" % [
+		int(Engine.get_frames_per_second()), _current_state_name, theme_name
+	]
 
 
 func _update_viewport_layout() -> void:
