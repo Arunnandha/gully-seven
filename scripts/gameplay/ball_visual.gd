@@ -22,7 +22,10 @@ func apply_theme(arena_theme: ArenaTheme) -> void:
 
 func _draw() -> void:
 	draw_set_transform(Vector2(0.0, SHADOW_OFFSET), 0.0, SHADOW_SCALE)
-	draw_circle(Vector2.ZERO, BALL_RADIUS, _shadow_color, true, -1.0, true)
+	draw_circle(Vector2.ZERO, BALL_RADIUS * 1.1, _shadow_color, true, -1.0, true)
+	var core_color: Color = _shadow_color
+	core_color.a = minf(_shadow_color.a * 1.7, 0.6)
+	draw_circle(Vector2.ZERO, BALL_RADIUS * 0.65, core_color, true, -1.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	draw_circle(Vector2.ZERO, BALL_RADIUS, _fill_color, true, -1.0, true)

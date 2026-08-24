@@ -9,7 +9,6 @@ theme_id = "village_courtyard"
 theme_name = "Village Courtyard"
 background_texture = ExtResource("2_bg")
 ground_tint_color = Color(0.05, 0.03, 0.02, 0.12)
-boundary_color = Color(0.98, 0.95, 0.88, 0.55)
 safe_circle_active_color = Color(1.0, 0.97, 0.88, 0.9)
 safe_circle_inactive_color = Color(1.0, 0.97, 0.88, 0.32)
 panel_accent_color = Color(1.0, 0.75, 0.30, 1.0)

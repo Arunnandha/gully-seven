@@ -17,7 +17,7 @@
 [ext_resource type="Script" path="res://scripts/presentation/screen_shake.gd" id="15_shake"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
-bg_color = Color(0.12, 0.08, 0.05, 0.62)
+bg_color = Color(0.09, 0.06, 0.04, 0.88)
 corner_radius_top_left = 14
 corner_radius_top_right = 14
 corner_radius_bottom_right = 14
@@ -205,18 +205,18 @@ offset_bottom = 68.0
 mouse_filter = 2
 script = ExtResource("10_breathbar")
 
-[node name="MessagePanel" type="Panel" parent="UI"]
+[node name="InstructionsPanel" type="Panel" parent="UI"]
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -112.0
-offset_right = 460.0
+offset_top = -78.0
+offset_right = 340.0
 offset_bottom = -16.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
 
-[node name="Margin" type="MarginContainer" parent="UI/MessagePanel"]
+[node name="Margin" type="MarginContainer" parent="UI/InstructionsPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -224,36 +224,64 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
 
-[node name="Content" type="VBoxContainer" parent="UI/MessagePanel/Margin"]
+[node name="Content" type="VBoxContainer" parent="UI/InstructionsPanel/Margin"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="ControlsLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+[node name="ControlsLabel" type="Label" parent="UI/InstructionsPanel/Margin/Content"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.90, 0.86, 0.95)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "Touch or left-drag to move | WASD / arrow keys"
 
-[node name="ResultLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+[node name="ResultLabel" type="Label" parent="UI/InstructionsPanel/Margin/Content"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.65, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "Drag from the ball to aim, release to throw"
 
-[node name="DebugLabel" type="Label" parent="UI/MessagePanel/Margin/Content"]
+[node name="DebugPanel" type="Panel" parent="UI"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -108.0
+offset_right = -16.0
+offset_bottom = -76.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
+
+[node name="Margin" type="MarginContainer" parent="UI/DebugPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="DebugLabel" type="Label" parent="UI/DebugPanel/Margin"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.55)
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
 theme_override_font_sizes/font_size = 12
-text = "FPS: -- | State: READY"
+text = "FPS: -- | State: READY | Theme: --"
 
 [node name="ResetButton" type="Button" parent="UI"]
 anchors_preset = 3

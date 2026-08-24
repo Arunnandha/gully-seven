@@ -4,6 +4,10 @@ extends CharacterBody2D
 
 const NO_TOUCH: int = -1
 const PLAYER_RADIUS: float = 28.0
+# Small fixed buffer beyond the object's own radius, on top of any detected
+# device safe-area inset, so the player never renders flush against the
+# physical screen edge or a display cutout.
+const EDGE_SAFE_INSET: float = 14.0
 
 @export_range(1.0, 200.0, 1.0) var joystick_radius: float = 90.0
 @export_range(1.0, 600.0, 1.0) var maximum_speed: float = 300.0
@@ -20,6 +24,7 @@ var _mouse_drag_active: bool = false
 var _joystick_origin: Vector2 = Vector2.ZERO
 var _joystick_input: Vector2 = Vector2.ZERO
 var _viewport_size: Vector2 = Vector2.ZERO
+var _edge_margin: Vector2 = Vector2.ZERO
 var _movement_enabled: bool = true
 var _carried_stone_count: int = 0
 
@@ -182,18 +187,20 @@ func _get_keyboard_input() -> Vector2:
 
 
 func _keep_inside_gameplay_area() -> void:
-	var maximum_x: float = _viewport_size.x - PLAYER_RADIUS
-	var maximum_y: float = _viewport_size.y - PLAYER_RADIUS
+	var minimum_x: float = PLAYER_RADIUS + _edge_margin.x
+	var minimum_y: float = PLAYER_RADIUS + _edge_margin.y
+	var maximum_x: float = _viewport_size.x - PLAYER_RADIUS - _edge_margin.x
+	var maximum_y: float = _viewport_size.y - PLAYER_RADIUS - _edge_margin.y
 
-	position.x = clampf(position.x, PLAYER_RADIUS, maximum_x)
-	position.y = clampf(position.y, PLAYER_RADIUS, maximum_y)
+	position.x = clampf(position.x, minimum_x, maximum_x)
+	position.y = clampf(position.y, minimum_y, maximum_y)
 
-	if position.x <= PLAYER_RADIUS and velocity.x < 0.0:
+	if position.x <= minimum_x and velocity.x < 0.0:
 		velocity.x = 0.0
 	elif position.x >= maximum_x and velocity.x > 0.0:
 		velocity.x = 0.0
 
-	if position.y <= PLAYER_RADIUS and velocity.y < 0.0:
+	if position.y <= minimum_y and velocity.y < 0.0:
 		velocity.y = 0.0
 	elif position.y >= maximum_y and velocity.y > 0.0:
 		velocity.y = 0.0
@@ -201,3 +208,4 @@ func _keep_inside_gameplay_area() -> void:
 
 func _update_viewport_size() -> void:
 	_viewport_size = get_viewport_rect().size
+	_edge_margin = Vector2.ONE * EDGE_SAFE_INSET + ViewportSafeArea.get_padding()

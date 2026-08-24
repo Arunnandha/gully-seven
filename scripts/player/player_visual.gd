@@ -73,6 +73,12 @@ func _draw() -> void:
 
 
 func _draw_shadow() -> void:
+	# Soft outer + denser core in one cheap pass (two flat circles, no
+	# blur/shader) reads more clearly against busy photo backgrounds than a
+	# single flat ellipse, while staying just as inexpensive to draw.
 	draw_set_transform(Vector2(0.0, SHADOW_OFFSET), 0.0, SHADOW_SCALE)
-	draw_circle(Vector2.ZERO, PLAYER_RADIUS, _shadow_color, true, -1.0, true)
+	draw_circle(Vector2.ZERO, PLAYER_RADIUS * 1.08, _shadow_color, true, -1.0, true)
+	var core_color: Color = _shadow_color
+	core_color.a = minf(_shadow_color.a * 1.7, 0.6)
+	draw_circle(Vector2.ZERO, PLAYER_RADIUS * 0.68, core_color, true, -1.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

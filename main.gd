@@ -32,9 +32,10 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _screen_shake: ScreenShake = $ScreenShake
 @onready var _world_dim: ColorRect = $WorldDim
 @onready var _breath_bar: BreathBar = $UI/BreathBar
-@onready var _controls_label: Label = $UI/MessagePanel/Margin/Content/ControlsLabel
-@onready var _result_label: Label = $UI/MessagePanel/Margin/Content/ResultLabel
-@onready var _debug_label: Label = $UI/MessagePanel/Margin/Content/DebugLabel
+@onready var _controls_label: Label = $UI/InstructionsPanel/Margin/Content/ControlsLabel
+@onready var _result_label: Label = $UI/InstructionsPanel/Margin/Content/ResultLabel
+@onready var _debug_panel: Panel = $UI/DebugPanel
+@onready var _debug_label: Label = $UI/DebugPanel/Margin/DebugLabel
 @onready var _carried_label: Label = $UI/TopRightPanel/Margin/Content/CarriedLabel
 @onready var _rebuilt_label: Label = $UI/TopRightPanel/Margin/Content/RebuiltLabel
 @onready var _round_label: Label = $UI/TopLeftPanel/Margin/Content/RoundLabel
@@ -52,7 +53,7 @@ var _current_theme: ArenaTheme = null
 func _ready() -> void:
 	_update_viewport_layout()
 	get_viewport().size_changed.connect(_update_viewport_layout)
-	_debug_label.visible = debug_display_enabled
+	_debug_panel.visible = debug_display_enabled
 	_refresh_debug_label()
 
 	_round_controller.result_ready.connect(_on_round_result_ready)

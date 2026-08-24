@@ -24,13 +24,7 @@ enum DecorStyle {
 @export var ground_shadow_color: Color = Color(0.62, 0.38, 0.20, 0.55)
 @export var ground_dot_light_color: Color = Color(0.82, 0.56, 0.34, 0.35)
 @export var ground_dot_dark_color: Color = Color(0.56, 0.34, 0.16, 0.30)
-@export var object_shadow_color: Color = Color(0.10, 0.06, 0.03, 0.30)
-
-@export_group("Boundary")
-@export var boundary_color: Color = Color(0.97, 0.93, 0.85, 0.50)
-@export var boundary_margin: float = 26.0
-@export var boundary_dash_length: float = 20.0
-@export var boundary_gap_length: float = 14.0
+@export var object_shadow_color: Color = Color(0.08, 0.05, 0.03, 0.34)
 
 @export_group("Safe Circle")
 @export var safe_circle_active_color: Color = Color(1.0, 0.97, 0.88, 0.85)

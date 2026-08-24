@@ -23,6 +23,7 @@ const SHADOW_OFFSET_RATIO: float = 0.12
 const SHADOW_SCALE_RATIO: float = 0.88
 const SAFE_RING_WIDTH: float = 2.5
 const SAFE_RING_MARGIN: float = 4.0
+const EDGE_SAFE_INSET: float = 10.0
 
 @export var stone_size: Vector2 = Vector2(118.0, 30.0)
 @export var stone_color: Color = Color(0.50, 0.35, 0.22, 1.0)
@@ -35,6 +36,7 @@ var _original_stack_position: Vector2 = Vector2.ZERO
 var _scatter_velocity: Vector2 = Vector2.ZERO
 var _scatter_angular_velocity: float = 0.0
 var _viewport_size: Vector2 = Vector2.ZERO
+var _edge_margin: Vector2 = Vector2.ZERO
 var _scatter_active: bool = false
 var _pickup_tween: Tween = null
 var _outline_color: Color = Color(0.16, 0.10, 0.06, 1.0)
@@ -197,20 +199,24 @@ func _resolve_viewport_boundaries() -> void:
 		half_width * half_width * sine * sine
 		+ half_height * half_height * cosine * cosine
 	)
+	var minimum_x: float = extent_x + _edge_margin.x
+	var minimum_y: float = extent_y + _edge_margin.y
+	var maximum_x: float = _viewport_size.x - extent_x - _edge_margin.x
+	var maximum_y: float = _viewport_size.y - extent_y - _edge_margin.y
 	var stone_position: Vector2 = global_position
 
-	if stone_position.x < extent_x:
-		stone_position.x = extent_x
+	if stone_position.x < minimum_x:
+		stone_position.x = minimum_x
 		_scatter_velocity.x = maxf(_scatter_velocity.x, 0.0)
-	elif stone_position.x > _viewport_size.x - extent_x:
-		stone_position.x = _viewport_size.x - extent_x
+	elif stone_position.x > maximum_x:
+		stone_position.x = maximum_x
 		_scatter_velocity.x = minf(_scatter_velocity.x, 0.0)
 
-	if stone_position.y < extent_y:
-		stone_position.y = extent_y
+	if stone_position.y < minimum_y:
+		stone_position.y = minimum_y
 		_scatter_velocity.y = maxf(_scatter_velocity.y, 0.0)
-	elif stone_position.y > _viewport_size.y - extent_y:
-		stone_position.y = _viewport_size.y - extent_y
+	elif stone_position.y > maximum_y:
+		stone_position.y = maximum_y
 		_scatter_velocity.y = minf(_scatter_velocity.y, 0.0)
 
 	global_position = stone_position
@@ -250,6 +256,7 @@ func _finish_scatter() -> void:
 
 func _update_viewport_size() -> void:
 	_viewport_size = get_viewport_rect().size
+	_edge_margin = Vector2.ONE * EDGE_SAFE_INSET + ViewportSafeArea.get_padding()
 
 
 func _apply_collision_size() -> void:
@@ -283,5 +290,8 @@ func _draw() -> void:
 func _draw_shadow(vertical_scale: float) -> void:
 	var shadow_scale: Vector2 = Vector2(SHADOW_SCALE_RATIO, vertical_scale * SHADOW_SCALE_RATIO * 0.85)
 	draw_set_transform(Vector2(0.0, stone_size.x * SHADOW_OFFSET_RATIO), 0.0, shadow_scale)
-	draw_circle(Vector2.ZERO, stone_size.x * 0.5, _shadow_color, true, -1.0, true)
+	draw_circle(Vector2.ZERO, stone_size.x * 0.54, _shadow_color, true, -1.0, true)
+	var core_color: Color = _shadow_color
+	core_color.a = minf(_shadow_color.a * 1.6, 0.6)
+	draw_circle(Vector2.ZERO, stone_size.x * 0.36, core_color, true, -1.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

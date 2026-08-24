@@ -11,16 +11,6 @@ const GROUND_STROKE_COUNT: int = 34
 const GROUND_PATCH_COUNT: int = 6
 const SHAKE_MARGIN: float = 16.0
 
-# Boundary drawn as a soft, slightly irregular rounded rectangle (cut
-# corners) rather than a perfect rectangle, for a hand-chalked feel.
-const BOUNDARY_POINTS_NORMALIZED: Array[Vector2] = [
-	Vector2(0.08, 0.0), Vector2(0.30, 0.0), Vector2(0.70, 0.0), Vector2(0.92, 0.0),
-	Vector2(1.0, 0.10), Vector2(1.0, 0.35), Vector2(1.0, 0.65), Vector2(1.0, 0.90),
-	Vector2(0.92, 1.0), Vector2(0.70, 1.0), Vector2(0.30, 1.0), Vector2(0.08, 1.0),
-	Vector2(0.0, 0.90), Vector2(0.0, 0.65), Vector2(0.0, 0.35), Vector2(0.0, 0.10),
-]
-const BOUNDARY_JITTER: float = 0.012
-
 const KOLAM_SPOTS: Array[Vector2] = [Vector2(0.07, 0.16), Vector2(0.90, 0.86)]
 const PLANT_SPOTS: Array[Vector2] = [
 	Vector2(0.025, 0.90), Vector2(0.975, 0.88), Vector2(0.955, 0.09),
@@ -42,12 +32,10 @@ var _stroke_angles: PackedFloat32Array = PackedFloat32Array()
 var _stroke_lengths: PackedFloat32Array = PackedFloat32Array()
 var _patch_positions: PackedVector2Array = PackedVector2Array()
 var _patch_radii: PackedFloat32Array = PackedFloat32Array()
-var _boundary_points: PackedVector2Array = PackedVector2Array()
 
 
 func _ready() -> void:
 	_generate_ground_pattern()
-	_generate_boundary_shape()
 
 
 func setup(arena_theme: ArenaTheme) -> void:
@@ -112,18 +100,6 @@ func _generate_ground_pattern() -> void:
 		_patch_radii[patch_index] = rng.randf_range(70.0, 140.0)
 
 
-func _generate_boundary_shape() -> void:
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.seed = PATTERN_SEED + 1
-	_boundary_points.resize(BOUNDARY_POINTS_NORMALIZED.size())
-	for point_index: int in range(BOUNDARY_POINTS_NORMALIZED.size()):
-		var jitter: Vector2 = Vector2(
-			rng.randf_range(-BOUNDARY_JITTER, BOUNDARY_JITTER),
-			rng.randf_range(-BOUNDARY_JITTER, BOUNDARY_JITTER)
-		)
-		_boundary_points[point_index] = BOUNDARY_POINTS_NORMALIZED[point_index] + jitter
-
-
 func _draw() -> void:
 	if _theme == null or _viewport_size == Vector2.ZERO:
 		return
@@ -140,8 +116,6 @@ func _draw() -> void:
 		_draw_ground_texture()
 		if _theme.decorations_enabled:
 			_draw_edge_decorations()
-
-	_draw_boundary()
 
 
 func _draw_ground_tint() -> void:
@@ -182,34 +156,6 @@ func _draw_ground_texture() -> void:
 			1.5,
 			true
 		)
-
-
-func _draw_boundary() -> void:
-	var margin: float = _theme.boundary_margin
-	var inner_size: Vector2 = _viewport_size - Vector2.ONE * margin * 2.0
-	var points: Array[Vector2] = []
-	points.resize(_boundary_points.size())
-	for point_index: int in range(_boundary_points.size()):
-		points[point_index] = _boundary_points[point_index] * inner_size + Vector2.ONE * margin
-
-	for side_index: int in range(points.size()):
-		_draw_dashed_segment(
-			points[side_index], points[(side_index + 1) % points.size()], _theme.boundary_color
-		)
-
-
-func _draw_dashed_segment(from: Vector2, to: Vector2, color: Color) -> void:
-	var segment: Vector2 = to - from
-	var length: float = segment.length()
-	if length <= 0.0:
-		return
-	var direction: Vector2 = segment / length
-	var step: float = _theme.boundary_dash_length + _theme.boundary_gap_length
-	var travelled: float = 0.0
-	while travelled < length:
-		var dash_end: float = minf(travelled + _theme.boundary_dash_length, length)
-		draw_line(from + direction * travelled, from + direction * dash_end, color, 3.0, true)
-		travelled += step
 
 
 func _draw_tree_shadows() -> void:
