@@ -8,6 +8,10 @@ const DEFENDER_RADIUS: float = 26.0
 const ARRIVE_RADIUS: float = 70.0
 const ZONE_STANDOFF_MARGIN: float = 80.0
 const GRACE_ALPHA: float = 0.45
+# Once the player gets this close to the guard point (or is carrying a
+# stone), a guarding defender switches to normal chase for the rest of the
+# raid — it never permanently ignores the player.
+const GUARD_RELEASE_RADIUS: float = 150.0
 # Normalized viewport spots considered when (re)spawning; the one farthest
 # from both the player and the safe circle wins.
 const SPAWN_CANDIDATES: Array[Vector2] = [
@@ -27,6 +31,8 @@ var _player: GullyPlayerController = null
 var _rebuild_zone: RebuildZone = null
 var _chase_active: bool = false
 var _grace_remaining: float = 0.0
+var _guard_target: Vector2 = Vector2.ZERO
+var _guard_active: bool = false
 
 
 func _ready() -> void:
@@ -55,7 +61,31 @@ func set_chase_enabled(enabled: bool) -> void:
 		reset_to_spawn()
 		start_grace()
 	else:
+		_guard_active = false
 		_defender_visual.set_idle()
+
+
+# Densest-cluster guard point for a weak-hit raid start (see StoneTower.
+# get_densest_cluster_point). Never allowed to sit inside/camp the safe
+# circle — pushed out to the same standoff ring the normal chase logic
+# already respects.
+func set_guard_point(point: Vector2) -> void:
+	var offset: Vector2 = point - _rebuild_zone.global_position
+	var min_distance: float = RebuildZone.RADIUS + ZONE_STANDOFF_MARGIN
+	var guard_point: Vector2 = point
+	if offset.length() < min_distance:
+		var direction: Vector2 = (
+			offset.normalized() if offset.length_squared() > 0.0001 else Vector2.RIGHT
+		)
+		guard_point = _rebuild_zone.global_position + direction * min_distance
+	_guard_target = PlayableArea.clamp_to_bounds(
+		guard_point, PlayableArea.get_actor_bounds(DEFENDER_RADIUS)
+	)
+	_guard_active = true
+
+
+func clear_guard() -> void:
+	_guard_active = false
 
 
 func play_tag_reaction() -> void:
@@ -95,6 +125,18 @@ func _physics_process(delta: float) -> void:
 		target = _rebuild_zone.global_position + away_direction * (
 			RebuildZone.RADIUS + ZONE_STANDOFF_MARGIN
 		)
+	elif _guard_active:
+		# Patrol the densest stone cluster until the player closes in or
+		# picks up a stone, then fall back to chasing normally for the rest
+		# of the raid.
+		var carrying_stone: bool = _player.get_carried_stone_count() > 0
+		var player_near: bool = (
+			global_position.distance_to(_player.global_position) <= GUARD_RELEASE_RADIUS
+		)
+		if carrying_stone or player_near:
+			_guard_active = false
+		else:
+			target = _guard_target
 
 	var offset: Vector2 = target - global_position
 	var distance: float = offset.length()

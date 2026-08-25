@@ -21,7 +21,11 @@ signal round_won(
 	tags: int,
 	breath_failures: int,
 	best_score: int,
-	round_number: int
+	round_number: int,
+	grade_name: String,
+	accuracy_percent: int,
+	stones_rebuilt: int,
+	rank_name: String
 )
 signal ball_thrown_effect(effect_position: Vector2)
 signal stone_deposited_effect(effect_position: Vector2)
@@ -32,7 +36,22 @@ const BALL_SPAWN_OFFSET: Vector2 = Vector2(60.0, -40.0)
 const DEPOSIT_INTERVAL: float = 0.28
 const REBUILD_DURATION: float = 1.2
 
+# Deterministic scatter seed for this round. Owned here (not on StoneTower)
+# so a future local/online competitive mode can hand two attempts the same
+# seed for a fair identical layout; scattering itself stays fully
+# deterministic for a given seed + aim + impact.
+const DEFAULT_ROUND_SEED: int = 73471
+
+# Throw-grade trade-offs: a weak hit wakes the defender almost immediately
+# (shortest grace) and starts the raid short on breath; strong/perfect hits
+# earn extra defender grace ("stun") and always start with full breath.
+const WEAK_DEFENDER_GRACE: float = 0.2
+const STRONG_GRACE_BONUS: float = 0.6
+const PERFECT_GRACE_BONUS: float = 1.1
+const WEAK_START_BREATH_RATIO: float = 0.75
+
 var current_state: State = State.READY
+var round_seed: int = DEFAULT_ROUND_SEED
 
 var _ball: ThrowBall = null
 var _stone_tower: StoneTower = null
@@ -48,6 +67,7 @@ var _deposit_countdown: float = 0.0
 var _rebuild_countdown: float = 0.0
 var _trip_stone_count: int = 0
 var _trip_breath_ratio: float = 1.0
+var _raid_start_breath_ratio: float = 1.0
 var _victory_active: bool = false
 
 
@@ -110,6 +130,10 @@ func request_home() -> void:
 	_enter_ready()
 
 
+func get_round_seed() -> int:
+	return round_seed
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey
@@ -144,13 +168,16 @@ func _enter_ready() -> void:
 	_rebuild_countdown = 0.0
 	_trip_stone_count = 0
 	_trip_breath_ratio = 1.0
+	_raid_start_breath_ratio = 1.0
 	set_physics_process(false)
 	_score_manager.reset_round_stats()
 	_apply_difficulty()
+	_stone_tower.scatter_seed = round_seed
 	_breath_meter.refill_full()
 	_player_controller.reset_to_start(_player_start_position)
 	_stone_tower.reset_stack()
 	_stone_trail.reset()
+	_defender.clear_guard()
 	_ball.reset_to_start(_player_controller.global_position + BALL_SPAWN_OFFSET)
 	_ball.aiming_enabled = true
 	_player_controller.set_movement_enabled(true)
@@ -194,9 +221,37 @@ func _on_ball_hit(
 ) -> void:
 	if current_state != State.AIM:
 		return
+	var strength: float = ThrowBall.get_normalized_strength(impact_speed)
+	var accuracy: float = ThrowBall.get_impact_alignment(
+		impact_direction, impact_position, _stone_tower.global_position
+	)
+	var grade: ThrowBall.ThrowGrade = ThrowBall.get_throw_grade(strength, accuracy)
+	_apply_throw_grade(grade, accuracy)
 	_change_state(State.BREAK)
 	result_ready.emit("Impact! Stones scattering...")
-	_stone_tower.scatter(impact_direction, impact_speed, impact_position)
+	_stone_tower.scatter(impact_direction, impact_speed, impact_position, grade)
+
+
+# One-time trade-off setup for this round's throw grade: how soon/long the
+# defender is a real threat and how much breath the raid starts with. The
+# score side (multiplier + accuracy points) is delegated to ScoreManager so
+# every scoring rule lives in one configurable place.
+func _apply_throw_grade(grade: ThrowBall.ThrowGrade, accuracy: float) -> void:
+	var base_grace: float = _score_manager.get_defender_grace()
+	match grade:
+		ThrowBall.ThrowGrade.WEAK:
+			_defender.grace_duration = WEAK_DEFENDER_GRACE
+			_raid_start_breath_ratio = WEAK_START_BREATH_RATIO
+		ThrowBall.ThrowGrade.STRONG:
+			_defender.grace_duration = base_grace + STRONG_GRACE_BONUS
+			_raid_start_breath_ratio = 1.0
+		ThrowBall.ThrowGrade.PERFECT:
+			_defender.grace_duration = base_grace + PERFECT_GRACE_BONUS
+			_raid_start_breath_ratio = 1.0
+		_:
+			_defender.grace_duration = base_grace
+			_raid_start_breath_ratio = 1.0
+	_score_manager.apply_throw_grade(grade, accuracy)
 
 
 func _on_ball_stopped(was_hit: bool) -> void:
@@ -210,8 +265,11 @@ func _on_tower_scatter_finished() -> void:
 	if current_state != State.BREAK:
 		return
 	_player_controller.set_movement_enabled(true)
+	_breath_meter.refill_to(_raid_start_breath_ratio)
 	_score_manager.start_timer()
 	_change_state(State.RAID)
+	if _score_manager.get_throw_grade() == ThrowBall.ThrowGrade.WEAK:
+		_defender.set_guard_point(_stone_tower.get_densest_cluster_point())
 	result_ready.emit("Stones settled — collect stones and return them to the circle")
 
 
@@ -337,7 +395,11 @@ func _enter_result_success() -> void:
 		_score_manager.get_tag_count(),
 		_score_manager.get_breath_failure_count(),
 		_score_manager.session_best_score,
-		_score_manager.round_number
+		_score_manager.round_number,
+		ThrowBall.get_grade_name(_score_manager.get_throw_grade()),
+		int(round(_score_manager.get_impact_accuracy() * 100.0)),
+		_stone_tower.get_deposited_count(),
+		ScoreManager.get_rank_name(_score_manager.get_rank())
 	)
 
 

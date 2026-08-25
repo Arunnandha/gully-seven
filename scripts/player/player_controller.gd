@@ -52,6 +52,10 @@ func set_carried_stone_count(count: int) -> void:
 	_carried_stone_count = maxi(count, 0)
 
 
+func get_carried_stone_count() -> int:
+	return _carried_stone_count
+
+
 func apply_theme(arena_theme: ArenaTheme) -> void:
 	_player_visual.apply_theme(arena_theme)
 

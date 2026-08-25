@@ -35,7 +35,13 @@ func get_ratio() -> float:
 
 
 func refill_full() -> void:
-	_ratio = 1.0
+	refill_to(1.0)
+
+
+# Used at raid start so a weak throw grade can begin the raid with reduced
+# breath instead of always topping off to full.
+func refill_to(ratio: float) -> void:
+	_ratio = clampf(ratio, 0.0, 1.0)
 	_warning_armed = true
 
 

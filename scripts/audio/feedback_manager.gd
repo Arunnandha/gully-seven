@@ -12,6 +12,9 @@ enum Event {
 	BREATH_FAILURE,
 	TOWER_COMPLETE,
 	BUTTON_PRESS,
+	TOWER_IMPACT_WEAK,
+	TOWER_IMPACT_STRONG,
+	TOWER_IMPACT_PERFECT,
 }
 
 const SFX_BUS_NAME: String = "SFX"
@@ -51,6 +54,31 @@ func _ready() -> void:
 func trigger(event: Event) -> void:
 	_play_sound(event)
 	_play_haptic(event)
+
+
+# Tower impacts carry their throw grade so sound and haptics scale with the
+# hit instead of always playing the one medium thump; Perfect gets its own
+# distinctive-but-restrained tier, deliberately lighter than Strong's.
+func trigger_tower_impact(grade: ThrowBall.ThrowGrade) -> void:
+	match grade:
+		ThrowBall.ThrowGrade.WEAK:
+			_play_sound(Event.TOWER_IMPACT_WEAK)
+			_vibrate(15, 0.3)
+		ThrowBall.ThrowGrade.STRONG:
+			_play_sound(Event.TOWER_IMPACT_STRONG)
+			_vibrate(60, 0.9)
+		ThrowBall.ThrowGrade.PERFECT:
+			_play_sound(Event.TOWER_IMPACT_PERFECT)
+			_vibrate(55, 0.75)
+		_:
+			_play_sound(Event.TOWER_IMPACT)
+			_vibrate(30, 0.55)
+
+
+func _vibrate(duration_msec: int, amplitude: float) -> void:
+	if not haptics_enabled:
+		return
+	Input.vibrate_handheld(duration_msec, amplitude)
 
 
 func stop_active_sounds() -> void:
@@ -116,6 +144,16 @@ func _generate_sounds() -> void:
 	_streams[Event.TOWER_IMPACT] = synth.generate_tone(
 		0.16, 160.0, 70.0, ProceduralSound.Waveform.SINE, 0.7, 0.45
 	)
+	_streams[Event.TOWER_IMPACT_WEAK] = synth.generate_tone(
+		0.10, 150.0, 95.0, ProceduralSound.Waveform.SINE, 0.45, 0.25
+	)
+	_streams[Event.TOWER_IMPACT_STRONG] = synth.generate_tone(
+		0.24, 180.0, 55.0, ProceduralSound.Waveform.SINE, 0.85, 0.6
+	)
+	_streams[Event.TOWER_IMPACT_PERFECT] = synth.generate_sequence([
+		{"duration": 0.09, "freq_start": 170.0, "freq_end": 90.0, "waveform": ProceduralSound.Waveform.SINE, "volume": 0.6, "noise_mix": 0.35},
+		{"duration": 0.10, "freq_start": 880.0, "freq_end": 1180.0, "waveform": ProceduralSound.Waveform.SINE, "volume": 0.4},
+	])
 	_streams[Event.STONE_PICKUP] = synth.generate_tone(
 		0.09, 900.0, 1300.0, ProceduralSound.Waveform.SINE, 0.5
 	)

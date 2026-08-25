@@ -39,6 +39,7 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _feedback: FeedbackManager = $FeedbackManager
 @onready var _world_dim: ColorRect = $WorldDim
 @onready var _breath_bar: BreathBar = $UI/BreathBar
+@onready var _grade_badge: GradeBadge = $UI/GradeBadge
 @onready var _result_label: Label = $UI/InstructionsPanel/Margin/Content/ResultLabel
 @onready var _debug_panel: Panel = $UI/DebugPanel
 @onready var _debug_label: Label = $UI/DebugPanel/Margin/DebugLabel
@@ -271,9 +272,25 @@ func _on_round_won(
 	tags: int,
 	breath_failures: int,
 	best_score: int,
-	round_number: int
+	round_number: int,
+	grade_name: String,
+	accuracy_percent: int,
+	stones_rebuilt: int,
+	rank_name: String
 ) -> void:
-	_result_overlay.show_result(score, time_seconds, trips, tags, breath_failures, best_score, round_number)
+	_result_overlay.show_result(
+		score,
+		time_seconds,
+		trips,
+		tags,
+		breath_failures,
+		best_score,
+		round_number,
+		grade_name,
+		accuracy_percent,
+		stones_rebuilt,
+		rank_name
+	)
 	_world_dim.visible = true
 	_effect_pool.play(EffectPool.Kind.TOWER_COMPLETE, _stone_tower.global_position)
 	_screen_shake.shake(COMPLETION_SHAKE)
@@ -349,10 +366,14 @@ func _refresh_stones_labels() -> void:
 
 func _on_round_state_changed(new_state: RoundController.State) -> void:
 	_current_state_name = _round_controller.get_state_name()
-	_breath_bar.set_shown(
-		new_state == RoundController.State.RAID
-		or new_state == RoundController.State.RETURN
+	var raid_or_return: bool = (
+		new_state == RoundController.State.RAID or new_state == RoundController.State.RETURN
 	)
+	_breath_bar.set_shown(raid_or_return)
+	if raid_or_return:
+		# Both banners share the top-center HUD slot; the breath bar always
+		# wins so a still-fading grade badge can never overlap it.
+		_grade_badge.reset_badge()
 	_refresh_round_label()
 	_refresh_debug_label()
 	if new_state != RoundController.State.RESULT:
@@ -364,6 +385,7 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 		_player.reset_visual_feedback()
 		_defender.reset_visuals()
 		_feedback.stop_active_sounds()
+		_grade_badge.reset_badge()
 	_refresh_pause_button_visibility()
 	match new_state:
 		RoundController.State.AIM:
@@ -372,10 +394,15 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 			_tutorial.notify_break_started()
 
 
-func _on_tower_scatter_started(impact_position: Vector2) -> void:
-	_effect_pool.play(EffectPool.Kind.TOWER_IMPACT, impact_position)
-	_screen_shake.shake(TOWER_IMPACT_SHAKE)
-	_feedback.trigger(FeedbackManager.Event.TOWER_IMPACT)
+func _on_tower_scatter_started(
+	impact_position: Vector2, impact_strength: float, grade: ThrowBall.ThrowGrade
+) -> void:
+	_effect_pool.play(
+		EffectPool.Kind.TOWER_IMPACT, impact_position, lerpf(0.75, 1.35, impact_strength)
+	)
+	_screen_shake.shake(TOWER_IMPACT_SHAKE * lerpf(0.6, 1.2, impact_strength))
+	_feedback.trigger_tower_impact(grade)
+	_grade_badge.show_for_grade(grade)
 
 
 func _process(delta: float) -> void:

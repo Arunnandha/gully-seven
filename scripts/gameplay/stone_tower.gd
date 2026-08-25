@@ -2,7 +2,9 @@ class_name StoneTower
 extends Node2D
 
 
-signal tower_scatter_started(impact_position: Vector2)
+signal tower_scatter_started(
+	impact_position: Vector2, impact_strength: float, throw_grade: ThrowBall.ThrowGrade
+)
 signal tower_scatter_finished
 signal deposited_count_changed(count: int)
 
@@ -17,19 +19,40 @@ const StonePieceType = preload("res://scripts/gameplay/stone_piece.gd")
 # Target travel distance (logical px from tower center) grows from the
 # heaviest/bottom stone to the lightest/top stone, so speed differences
 # fall out of the distance formula instead of being tuned separately.
-const MIN_INDEX_DISTANCE: float = 140.0
-const MAX_INDEX_DISTANCE: float = 230.0
-const DISTANCE_SCALE_MIN: float = 0.85
-const DISTANCE_SCALE_MAX: float = 1.15
+# Each power band has its own near/far range so weak, medium and strong
+# hits read as clearly different spreads.
+const WEAK_NEAR_DISTANCE: float = 70.0
+const WEAK_FAR_DISTANCE: float = 150.0
+const MEDIUM_NEAR_DISTANCE: float = 120.0
+const MEDIUM_FAR_DISTANCE: float = 250.0
+const STRONG_NEAR_DISTANCE: float = 180.0
+const STRONG_FAR_DISTANCE: float = 360.0
+# Fine power variation inside one band, so two throws in the same band are
+# still not pixel-identical.
+const BAND_SCALE_MIN: float = 0.9
+const BAND_SCALE_MAX: float = 1.1
+# Fan width: weak hits collapse locally (narrow fan), strong hits fan wide.
+const FAN_WIDTH_MIN: float = 0.7
+const FAN_WIDTH_MAX: float = 1.3
+# The top stone keeps at least a slight backward component in every band.
+const BACK_STONE_MIN_ANGLE: float = 1.85
+# Central impacts transfer full energy; glancing ones lose some and push
+# the whole fan sideways instead.
+const CENTRAL_ENERGY_MIN: float = 0.85
+const GLANCING_BIAS_MAX: float = 0.7
 const ANGLE_JITTER_MIN: float = 0.10
 const ANGLE_JITTER_MAX: float = 0.30
 const OUTLIER_CHANCE: float = 0.35
 const OUTLIER_BONUS_MIN: float = 40.0
 const OUTLIER_BONUS_MAX: float = 110.0
-const HARD_DISTANCE_CEILING: float = 340.0
+const HARD_DISTANCE_CEILING: float = 460.0
 const MINIMUM_DISTANCE: float = 40.0
 const FINAL_SEPARATION_PADDING: float = 6.0
 const FINAL_SEPARATION_PASSES: int = 8
+
+# For the weak-hit defender guard point: stones within this radius of each
+# other count as one cluster; computed once per raid start, never per frame.
+const CLUSTER_NEIGHBOR_RADIUS: float = 130.0
 
 # One fan offset per stack index (0 = bottom/heaviest .. 6 = top/lightest),
 # broad enough to cover forward, sideways, and one backward-leaning stone.
@@ -97,6 +120,38 @@ func get_footprint_radius() -> float:
 	return BOTTOM_WIDTH * 0.5 + 12.0
 
 
+# Densest cluster among the (freshly scattered, all-collectible) stones,
+# computed once at raid start for a weak-hit defender guard point. O(n^2)
+# on 7 stones — 49 distance checks, never per frame.
+func get_densest_cluster_point() -> Vector2:
+	var best_index: int = 0
+	var best_score: float = -1.0
+	for i: int in range(_pieces.size()):
+		var position_i: Vector2 = _pieces[i].global_position
+		var score: float = 0.0
+		for j: int in range(_pieces.size()):
+			if i == j:
+				continue
+			var distance: float = position_i.distance_to(_pieces[j].global_position)
+			if distance < CLUSTER_NEIGHBOR_RADIUS:
+				score += 1.0 - distance / CLUSTER_NEIGHBOR_RADIUS
+		if score > best_score:
+			best_score = score
+			best_index = i
+
+	var anchor_position: Vector2 = _pieces[best_index].global_position
+	var position_sum: Vector2 = anchor_position
+	var neighbor_count: int = 1
+	for j: int in range(_pieces.size()):
+		if j == best_index:
+			continue
+		var distance: float = anchor_position.distance_to(_pieces[j].global_position)
+		if distance < CLUSTER_NEIGHBOR_RADIUS:
+			position_sum += _pieces[j].global_position
+			neighbor_count += 1
+	return position_sum / float(neighbor_count)
+
+
 func get_pieces() -> Array[StonePieceType]:
 	return _pieces
 
@@ -109,7 +164,8 @@ func set_collection_enabled(enabled: bool) -> void:
 func scatter(
 	impact_direction: Vector2,
 	impact_speed: float,
-	impact_position: Vector2
+	impact_position: Vector2,
+	throw_grade: ThrowBall.ThrowGrade
 ) -> void:
 	if _scatter_active:
 		return
@@ -118,25 +174,59 @@ func scatter(
 	if normalized_impact.length_squared() <= 0.0:
 		normalized_impact = Vector2.RIGHT
 
-	var strength_t: float = clampf(impact_speed / ThrowBall.MAX_THROW_SPEED, 0.0, 1.0)
-	var distance_scale: float = lerpf(DISTANCE_SCALE_MIN, DISTANCE_SCALE_MAX, strength_t)
+	var strength_t: float = ThrowBall.get_normalized_strength(impact_speed)
+	var band: ThrowBall.PowerBand = ThrowBall.get_power_band(strength_t)
+	var band_t: float = ThrowBall.get_band_progress(strength_t)
+	var near_distance: float = MEDIUM_NEAR_DISTANCE
+	var far_distance: float = MEDIUM_FAR_DISTANCE
+	match band:
+		ThrowBall.PowerBand.WEAK:
+			near_distance = WEAK_NEAR_DISTANCE
+			far_distance = WEAK_FAR_DISTANCE
+		ThrowBall.PowerBand.STRONG:
+			near_distance = STRONG_NEAR_DISTANCE
+			far_distance = STRONG_FAR_DISTANCE
+		_:
+			pass
+	var distance_scale: float = lerpf(BAND_SCALE_MIN, BAND_SCALE_MAX, band_t)
+	var fan_width: float = lerpf(FAN_WIDTH_MIN, FAN_WIDTH_MAX, strength_t)
 	var angle_jitter_limit: float = lerpf(ANGLE_JITTER_MIN, ANGLE_JITTER_MAX, strength_t)
+
+	# Impact geometry: alignment 1 means the ball's path runs through the
+	# tower center (full energy transfer); low alignment is a glancing blow
+	# that loses energy and deflects the whole fan sideways, away from the
+	# side the ball clipped. Uses the same shared formula RoundController
+	# used to grade this throw, so scatter and grading always agree.
+	var alignment: float = ThrowBall.get_impact_alignment(
+		normalized_impact, impact_position, global_position
+	)
+	var glance_bias: float = 0.0
+	var to_center: Vector2 = global_position - impact_position
+	if to_center.length_squared() > 1.0:
+		var lateral_sign: float = signf(normalized_impact.cross(to_center.normalized()))
+		glance_bias = -lateral_sign * (1.0 - alignment) * GLANCING_BIAS_MAX
+	var energy_scale: float = lerpf(CENTRAL_ENERGY_MIN, 1.0, alignment)
 
 	_scatter_rng.seed = scatter_seed
 	_settled_piece_count = 0
 	_scatter_active = true
-	tower_scatter_started.emit(impact_position)
+	tower_scatter_started.emit(impact_position, strength_t, throw_grade)
 
 	for piece: StonePieceType in _pieces:
 		var index_t: float = float(piece.stack_index) / float(STONE_COUNT - 1)
 		var jitter: float = _scatter_rng.randf_range(-angle_jitter_limit, angle_jitter_limit)
-		var direction: Vector2 = normalized_impact.rotated(
-			FAN_ANGLE_BY_INDEX[piece.stack_index] + jitter
-		)
-		var target_distance: float = lerpf(MIN_INDEX_DISTANCE, MAX_INDEX_DISTANCE, index_t)
-		target_distance *= distance_scale
+		var fan_angle: float = FAN_ANGLE_BY_INDEX[piece.stack_index] * fan_width
+		if piece.stack_index == STONE_COUNT - 1:
+			fan_angle = maxf(fan_angle, BACK_STONE_MIN_ANGLE)
+		var direction: Vector2 = normalized_impact.rotated(fan_angle + glance_bias + jitter)
+		var target_distance: float = lerpf(near_distance, far_distance, index_t)
+		target_distance *= distance_scale * energy_scale
 
-		if piece.stack_index == STONE_COUNT - 1 and _scatter_rng.randf() < OUTLIER_CHANCE:
+		if (
+			piece.stack_index == STONE_COUNT - 1
+			and band == ThrowBall.PowerBand.STRONG
+			and _scatter_rng.randf() < OUTLIER_CHANCE
+		):
 			target_distance += lerpf(OUTLIER_BONUS_MIN, OUTLIER_BONUS_MAX, strength_t)
 
 		target_distance = clampf(target_distance, MINIMUM_DISTANCE, HARD_DISTANCE_CEILING)

@@ -25,14 +25,23 @@ func _ready() -> void:
 		_pool.append(effect)
 
 
-func play(kind: Kind, effect_position: Vector2) -> void:
+# intensity scales the effect's end size (and slightly its duration) so
+# stronger gameplay moments read bigger without new effect styles.
+func play(kind: Kind, effect_position: Vector2, intensity: float = 1.0) -> void:
 	var effect: GameEffect = _pool[_next_index]
 	_next_index = (_next_index + 1) % POOL_SIZE
 	match kind:
 		Kind.BALL_RELEASE:
 			effect.play(effect_position, GameEffect.Style.SPARKLE, Color(1.0, 0.95, 0.80, 0.9), 0.18, 0.4, 1.0)
 		Kind.TOWER_IMPACT:
-			effect.play(effect_position, GameEffect.Style.BURST, Color(1.0, 0.88, 0.56, 0.92), 0.28, 0.55, 1.5)
+			effect.play(
+				effect_position,
+				GameEffect.Style.BURST,
+				Color(1.0, 0.88, 0.56, 0.92),
+				0.28 * clampf(intensity, 0.85, 1.15),
+				0.55,
+				1.5 * intensity
+			)
 		Kind.STONE_COLLECT:
 			effect.play(effect_position, GameEffect.Style.SPARKLE, Color(1.0, 0.85, 0.40, 0.95), 0.22, 0.5, 1.2)
 		Kind.STONE_DEPOSIT:

@@ -19,6 +19,7 @@
 [ext_resource type="Script" path="res://scripts/ui/start_screen.gd" id="17_startscreen"]
 [ext_resource type="Script" path="res://scripts/ui/tutorial_controller.gd" id="18_tutorial"]
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="19_pausemenu"]
+[ext_resource type="Script" path="res://scripts/ui/grade_badge.gd" id="20_gradebadge"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
 bg_color = Color(0.09, 0.06, 0.04, 0.88)
@@ -213,6 +214,21 @@ offset_bottom = 68.0
 mouse_filter = 2
 script = ExtResource("10_breathbar")
 
+[node name="GradeBadge" type="Label" parent="UI"]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -140.0
+offset_top = 14.0
+offset_right = 140.0
+offset_bottom = 54.0
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 26
+text = "MEDIUM"
+script = ExtResource("20_gradebadge")
+
 [node name="InstructionsPanel" type="Panel" parent="UI"]
 anchors_preset = 2
 anchor_top = 1.0
@@ -402,6 +418,13 @@ theme_override_colors/font_color = Color(0.80, 0.72, 0.64, 1)
 theme_override_font_sizes/font_size = 14
 text = "ROUND 1 COMPLETE"
 
+[node name="RankValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.82, 0.30, 1)
+theme_override_font_sizes/font_size = 20
+text = "RANK: GOLD"
+
 [node name="HSeparator1" type="HSeparator" parent="UI/ResultOverlay/Card/Margin/Content"]
 layout_mode = 2
 
@@ -427,6 +450,48 @@ layout_mode = 2
 theme_override_constants/h_separation = 18
 theme_override_constants/v_separation = 6
 columns = 2
+
+[node name="GradeCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "THROW GRADE"
+
+[node name="GradeValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "MEDIUM"
+
+[node name="AccuracyCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "ACCURACY"
+
+[node name="AccuracyValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0%"
+
+[node name="RebuiltCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 15
+text = "REBUILT"
+
+[node name="RebuiltValue" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
+layout_mode = 2
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 15
+text = "0"
 
 [node name="TimeCaption" type="Label" parent="UI/ResultOverlay/Card/Margin/Content/StatsGrid"]
 layout_mode = 2

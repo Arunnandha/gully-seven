@@ -323,15 +323,16 @@ func _draw_head(s: float, upper_offset: Vector2) -> void:
 func _draw_hair(head_center: Vector2, radius: float) -> void:
 	var facing_back: bool = _facing.y < -0.35
 	if facing_back:
-		# Back view: hair covers the whole face area.
-		draw_circle(head_center + Vector2(0.0, -1.0), radius * 0.94, HAIR_COLOR, true, -1.0, true)
+		# Back view: hair covers most of the head, kept inside the skull
+		# outline so it reads as short hair rather than a helmet.
+		draw_circle(head_center + Vector2(0.0, -1.0), radius * 0.86, HAIR_COLOR, true, -1.0, true)
 	else:
-		_fill_top_semicircle(head_center, radius * 1.02)
+		_fill_hair_cap(head_center, radius)
 		if hair_style == HairStyle.FLAT:
 			draw_rect(
 				Rect2(
-					head_center + Vector2(-radius * 0.85, -radius * 0.45),
-					Vector2(radius * 1.45, radius * 0.35)
+					head_center + Vector2(-radius * 0.8, -radius * 0.42),
+					Vector2(radius * 1.35, radius * 0.26)
 				),
 				HAIR_COLOR,
 				true
@@ -340,11 +341,11 @@ func _draw_hair(head_center: Vector2, radius: float) -> void:
 		for spike_index: int in range(3):
 			var angle: float = -PI * 0.5 + (float(spike_index) - 1.0) * 0.55
 			var base_dir: Vector2 = Vector2.RIGHT.rotated(angle)
-			var perp: Vector2 = base_dir.orthogonal() * radius * 0.22
+			var perp: Vector2 = base_dir.orthogonal() * radius * 0.2
 			_poly_scratch.resize(3)
-			_poly_scratch[0] = head_center + base_dir * radius * 1.45
-			_poly_scratch[1] = head_center + base_dir * radius * 0.85 + perp
-			_poly_scratch[2] = head_center + base_dir * radius * 0.85 - perp
+			_poly_scratch[0] = head_center + base_dir * radius * 1.22
+			_poly_scratch[1] = head_center + base_dir * radius * 0.8 + perp
+			_poly_scratch[2] = head_center + base_dir * radius * 0.8 - perp
 			draw_colored_polygon(_poly_scratch, HAIR_COLOR)
 	if has_headband:
 		draw_rect(
@@ -357,12 +358,17 @@ func _draw_hair(head_center: Vector2, radius: float) -> void:
 		)
 
 
-func _fill_top_semicircle(head_center: Vector2, radius: float) -> void:
+# Short rounded hair cap: a flattened elliptical dome hugging the top of
+# the skull instead of the old full semicircle "helmet".
+func _fill_hair_cap(head_center: Vector2, radius: float) -> void:
+	var cap_center: Vector2 = head_center + Vector2(0.0, -radius * 0.18)
 	var point_count: int = 9
 	_poly_scratch.resize(point_count)
 	for point_index: int in range(point_count):
 		var angle: float = PI + PI * float(point_index) / float(point_count - 1)
-		_poly_scratch[point_index] = head_center + Vector2.RIGHT.rotated(angle) * radius
+		_poly_scratch[point_index] = cap_center + Vector2(
+			cos(angle) * radius * 0.99, sin(angle) * radius * 0.62
+		)
 	draw_colored_polygon(_poly_scratch, HAIR_COLOR)
 
 
