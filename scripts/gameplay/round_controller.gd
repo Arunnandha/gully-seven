@@ -104,6 +104,12 @@ func request_next_round() -> void:
 	_enter_ready()
 
 
+func request_home() -> void:
+	_victory_active = false
+	_score_manager.reset_session()
+	_enter_ready()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey

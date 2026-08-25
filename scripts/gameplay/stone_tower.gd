@@ -26,7 +26,6 @@ const ANGLE_JITTER_MAX: float = 0.30
 const OUTLIER_CHANCE: float = 0.35
 const OUTLIER_BONUS_MIN: float = 40.0
 const OUTLIER_BONUS_MAX: float = 110.0
-const EDGE_SAFETY_MARGIN: float = 40.0
 const HARD_DISTANCE_CEILING: float = 340.0
 const MINIMUM_DISTANCE: float = 40.0
 const FINAL_SEPARATION_PADDING: float = 6.0
@@ -155,31 +154,31 @@ func scatter(
 
 
 func _get_max_allowed_distance(direction: Vector2, piece: StonePieceType) -> float:
-	var viewport_rect: Rect2 = get_viewport_rect()
+	# Ray-clamp against the shared collectible-safe rect so every scattered
+	# stone stops inside the player's guaranteed pickup range. The piece spins
+	# while scattering, so use rotation-conservative square extents.
+	var bounds: Rect2 = PlayableArea.get_collectible_bounds(
+		Vector2.ONE * piece.stone_size.x * 0.5, piece.get_pickup_radius()
+	)
 	var start_position: Vector2 = piece.global_position
-	var safety_extent: float = piece.stone_size.x * 0.5 + EDGE_SAFETY_MARGIN
 	var maximum_distance: float = HARD_DISTANCE_CEILING
 
 	if direction.x > 0.0001:
 		maximum_distance = minf(
-			maximum_distance,
-			(viewport_rect.end.x - start_position.x - safety_extent) / direction.x
+			maximum_distance, (bounds.end.x - start_position.x) / direction.x
 		)
 	elif direction.x < -0.0001:
 		maximum_distance = minf(
-			maximum_distance,
-			(start_position.x - viewport_rect.position.x - safety_extent) / -direction.x
+			maximum_distance, (start_position.x - bounds.position.x) / -direction.x
 		)
 
 	if direction.y > 0.0001:
 		maximum_distance = minf(
-			maximum_distance,
-			(viewport_rect.end.y - start_position.y - safety_extent) / direction.y
+			maximum_distance, (bounds.end.y - start_position.y) / direction.y
 		)
 	elif direction.y < -0.0001:
 		maximum_distance = minf(
-			maximum_distance,
-			(start_position.y - viewport_rect.position.y - safety_extent) / -direction.y
+			maximum_distance, (start_position.y - bounds.position.y) / -direction.y
 		)
 
 	return maxf(MINIMUM_DISTANCE, maximum_distance)

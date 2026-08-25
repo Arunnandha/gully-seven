@@ -58,6 +58,11 @@ func advance_round() -> void:
 	round_number += 1
 
 
+func reset_session() -> void:
+	round_number = 1
+	session_best_score = 0
+
+
 func start_timer() -> void:
 	_timer_running = true
 	set_physics_process(true)

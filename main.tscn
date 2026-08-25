@@ -16,6 +16,8 @@
 [ext_resource type="Script" path="res://scripts/presentation/effect_pool.gd" id="14_effectpool"]
 [ext_resource type="Script" path="res://scripts/presentation/screen_shake.gd" id="15_shake"]
 [ext_resource type="Script" path="res://scripts/audio/feedback_manager.gd" id="16_feedback"]
+[ext_resource type="Script" path="res://scripts/ui/start_screen.gd" id="17_startscreen"]
+[ext_resource type="Script" path="res://scripts/ui/tutorial_controller.gd" id="18_tutorial"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
 bg_color = Color(0.09, 0.06, 0.04, 0.88)
@@ -238,13 +240,6 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="ControlsLabel" type="Label" parent="UI/InstructionsPanel/Margin/Content"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.92, 0.90, 0.86, 0.95)
-theme_override_font_sizes/font_size = 13
-text = "Touch or left-drag to move | WASD / arrow keys"
-
 [node name="ResultLabel" type="Label" parent="UI/InstructionsPanel/Margin/Content"]
 layout_mode = 2
 mouse_filter = 2
@@ -300,6 +295,64 @@ offset_bottom = -16.0
 theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
 theme_override_font_sizes/font_size = 18
 text = "RESET"
+
+[node name="HomeButton" type="Button" parent="UI"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -68.0
+offset_right = 96.0
+offset_bottom = -16.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 16
+text = "HOME"
+
+[node name="TutorialPrompt" type="Panel" parent="UI"]
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 380.0
+offset_top = -86.0
+offset_right = 900.0
+offset_bottom = -20.0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_hudpanel")
+script = ExtResource("18_tutorial")
+
+[node name="Margin" type="MarginContainer" parent="UI/TutorialPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Content" type="HBoxContainer" parent="UI/TutorialPrompt/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="PromptLabel" type="Label" parent="UI/TutorialPrompt/Margin/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.92, 0.75, 1)
+theme_override_font_sizes/font_size = 16
+text = "Drag from the ball to aim."
+
+[node name="SkipButton" type="Button" parent="UI/TutorialPrompt/Margin/Content"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 14
+text = "SKIP"
 
 [node name="ResultOverlay" type="Control" parent="UI"]
 visible = false
@@ -458,3 +511,117 @@ custom_minimum_size = Vector2(0, 58)
 theme_override_styles/normal = SubResource("StyleBoxFlat_playagain")
 theme_override_font_sizes/font_size = 22
 text = "PLAY AGAIN"
+
+[node name="StartLayer" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="StartScreen" type="Control" parent="StartLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("17_startscreen")
+
+[node name="Dim" type="ColorRect" parent="StartLayer/StartScreen"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.05, 0.04, 0.03, 0.62)
+
+[node name="Panel" type="PanelContainer" parent="StartLayer/StartScreen"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="StartLayer/StartScreen/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 26
+
+[node name="Content" type="VBoxContainer" parent="StartLayer/StartScreen/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.98, 0.90, 0.78, 1)
+theme_override_font_sizes/font_size = 40
+text = "GULLY SEVEN"
+
+[node name="SubtitleLabel" type="Label" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.85, 0.80, 0.74, 1)
+theme_override_font_sizes/font_size = 16
+text = "Break. Raid. Rebuild."
+
+[node name="HSeparator1" type="HSeparator" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="ThemeRow" type="HBoxContainer" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="PrevButton" type="Button" parent="StartLayer/StartScreen/Panel/Margin/Content/ThemeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(48, 44)
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 20
+text = "<"
+
+[node name="ThemeNameLabel" type="Label" parent="StartLayer/StartScreen/Panel/Margin/Content/ThemeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.92, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "Village Courtyard"
+
+[node name="NextButton" type="Button" parent="StartLayer/StartScreen/Panel/Margin/Content/ThemeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(48, 44)
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 20
+text = ">"
+
+[node name="TogglesRow" type="HBoxContainer" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 24
+
+[node name="SfxToggle" type="CheckButton" parent="StartLayer/StartScreen/Panel/Margin/Content/TogglesRow"]
+layout_mode = 2
+button_pressed = true
+theme_override_font_sizes/font_size = 14
+text = "SFX"
+
+[node name="HapticsToggle" type="CheckButton" parent="StartLayer/StartScreen/Panel/Margin/Content/TogglesRow"]
+layout_mode = 2
+button_pressed = true
+theme_override_font_sizes/font_size = 14
+text = "HAPTICS"
+
+[node name="HSeparator2" type="HSeparator" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="PlayButton" type="Button" parent="StartLayer/StartScreen/Panel/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 68)
+theme_override_styles/normal = SubResource("StyleBoxFlat_playagain")
+theme_override_font_sizes/font_size = 26
+text = "PLAY"

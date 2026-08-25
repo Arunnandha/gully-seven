@@ -23,7 +23,6 @@ const SHADOW_OFFSET_RATIO: float = 0.12
 const SHADOW_SCALE_RATIO: float = 0.88
 const SAFE_RING_WIDTH: float = 2.5
 const SAFE_RING_MARGIN: float = 4.0
-const EDGE_SAFE_INSET: float = 10.0
 
 @export var stone_size: Vector2 = Vector2(118.0, 30.0)
 @export var stone_color: Color = Color(0.50, 0.35, 0.22, 1.0)
@@ -35,8 +34,6 @@ var current_state: State = State.STACKED
 var _original_stack_position: Vector2 = Vector2.ZERO
 var _scatter_velocity: Vector2 = Vector2.ZERO
 var _scatter_angular_velocity: float = 0.0
-var _viewport_size: Vector2 = Vector2.ZERO
-var _edge_margin: Vector2 = Vector2.ZERO
 var _scatter_active: bool = false
 var _pickup_tween: Tween = null
 var _outline_color: Color = Color(0.16, 0.10, 0.06, 1.0)
@@ -51,8 +48,6 @@ func _ready() -> void:
 	set_process_input(false)
 	monitoring = false
 	body_entered.connect(_on_body_entered)
-	_update_viewport_size()
-	get_viewport().size_changed.connect(_update_viewport_size)
 
 
 func configure(
@@ -110,7 +105,12 @@ func drop_scattered(drop_position: Vector2) -> void:
 		_pickup_tween.kill()
 	scale = Vector2.ONE
 	top_level = true
-	global_position = drop_position
+	# Final placement guarantee: whatever the requested spot, the piece lands
+	# inside the shared collectible-safe rect for its current rotation.
+	global_position = PlayableArea.clamp_to_bounds(
+		drop_position,
+		PlayableArea.get_collectible_bounds(_get_rotated_extents(), get_pickup_radius())
+	)
 	current_state = State.SCATTERED
 	queue_redraw()
 
@@ -170,7 +170,7 @@ func _physics_process(delta: float) -> void:
 
 	global_position += _scatter_velocity * delta
 	rotation += _scatter_angular_velocity * delta
-	_resolve_viewport_boundaries()
+	_resolve_playable_boundaries()
 
 	_scatter_velocity = _scatter_velocity.move_toward(Vector2.ZERO, SCATTER_FRICTION * delta)
 	_scatter_angular_velocity = move_toward(
@@ -186,40 +186,51 @@ func _physics_process(delta: float) -> void:
 		_finish_scatter()
 
 
-func _resolve_viewport_boundaries() -> void:
+# Clamp into the shared collectible-safe rect (visible AND within the
+# player's guaranteed pickup reach), zeroing any velocity component that
+# still points outward so bounces can never carry the piece back out.
+func _resolve_playable_boundaries() -> void:
+	var bounds: Rect2 = PlayableArea.get_collectible_bounds(
+		_get_rotated_extents(), get_pickup_radius()
+	)
+	var stone_position: Vector2 = global_position
+
+	if stone_position.x < bounds.position.x:
+		stone_position.x = bounds.position.x
+		_scatter_velocity.x = maxf(_scatter_velocity.x, 0.0)
+	elif stone_position.x > bounds.end.x:
+		stone_position.x = bounds.end.x
+		_scatter_velocity.x = minf(_scatter_velocity.x, 0.0)
+
+	if stone_position.y < bounds.position.y:
+		stone_position.y = bounds.position.y
+		_scatter_velocity.y = maxf(_scatter_velocity.y, 0.0)
+	elif stone_position.y > bounds.end.y:
+		stone_position.y = bounds.end.y
+		_scatter_velocity.y = minf(_scatter_velocity.y, 0.0)
+
+	global_position = stone_position
+
+
+func get_pickup_radius() -> float:
+	return stone_size.y * 0.5
+
+
+func _get_rotated_extents() -> Vector2:
 	var half_width: float = stone_size.x * 0.5
 	var half_height: float = stone_size.y * 0.5
 	var cosine: float = cos(rotation)
 	var sine: float = sin(rotation)
-	var extent_x: float = sqrt(
-		half_width * half_width * cosine * cosine
-		+ half_height * half_height * sine * sine
+	return Vector2(
+		sqrt(
+			half_width * half_width * cosine * cosine
+			+ half_height * half_height * sine * sine
+		),
+		sqrt(
+			half_width * half_width * sine * sine
+			+ half_height * half_height * cosine * cosine
+		)
 	)
-	var extent_y: float = sqrt(
-		half_width * half_width * sine * sine
-		+ half_height * half_height * cosine * cosine
-	)
-	var minimum_x: float = extent_x + _edge_margin.x
-	var minimum_y: float = extent_y + _edge_margin.y
-	var maximum_x: float = _viewport_size.x - extent_x - _edge_margin.x
-	var maximum_y: float = _viewport_size.y - extent_y - _edge_margin.y
-	var stone_position: Vector2 = global_position
-
-	if stone_position.x < minimum_x:
-		stone_position.x = minimum_x
-		_scatter_velocity.x = maxf(_scatter_velocity.x, 0.0)
-	elif stone_position.x > maximum_x:
-		stone_position.x = maximum_x
-		_scatter_velocity.x = minf(_scatter_velocity.x, 0.0)
-
-	if stone_position.y < minimum_y:
-		stone_position.y = minimum_y
-		_scatter_velocity.y = maxf(_scatter_velocity.y, 0.0)
-	elif stone_position.y > maximum_y:
-		stone_position.y = maximum_y
-		_scatter_velocity.y = minf(_scatter_velocity.y, 0.0)
-
-	global_position = stone_position
 
 
 func get_separation_radius() -> float:
@@ -241,7 +252,7 @@ func get_separation_extent(world_direction: Vector2) -> float:
 
 func apply_settle_separation(offset: Vector2) -> void:
 	global_position += offset
-	_resolve_viewport_boundaries()
+	_resolve_playable_boundaries()
 
 
 func _finish_scatter() -> void:
@@ -251,12 +262,10 @@ func _finish_scatter() -> void:
 	_scatter_velocity = Vector2.ZERO
 	_scatter_angular_velocity = 0.0
 	set_physics_process(false)
+	# Deterministic settle-time validation: the final rotation may differ from
+	# the one active during the last bounce clamp, so re-check once here.
+	_resolve_playable_boundaries()
 	stone_settled.emit(self)
-
-
-func _update_viewport_size() -> void:
-	_viewport_size = get_viewport_rect().size
-	_edge_margin = Vector2.ONE * EDGE_SAFE_INSET + ViewportSafeArea.get_padding()
 
 
 func _apply_collision_size() -> void:

@@ -5,7 +5,6 @@ extends CharacterBody2D
 signal player_tagged
 
 const DEFENDER_RADIUS: float = 26.0
-const EDGE_SAFE_INSET: float = 14.0
 const ARRIVE_RADIUS: float = 70.0
 const ZONE_STANDOFF_MARGIN: float = 80.0
 const GRACE_ALPHA: float = 0.45
@@ -28,8 +27,6 @@ var _player: GullyPlayerController = null
 var _rebuild_zone: RebuildZone = null
 var _chase_active: bool = false
 var _grace_remaining: float = 0.0
-var _viewport_size: Vector2 = Vector2.ZERO
-var _edge_margin: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -37,8 +34,6 @@ func _ready() -> void:
 	set_process(false)
 	set_physics_process(false)
 	set_process_input(false)
-	_update_viewport_size()
-	get_viewport().size_changed.connect(_update_viewport_size)
 
 
 func setup(player: GullyPlayerController, rebuild_zone: RebuildZone) -> void:
@@ -114,10 +109,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _pick_spawn_position() -> Vector2:
-	var best_position: Vector2 = _viewport_size * 0.1
+	var viewport_size: Vector2 = PlayableArea.get_viewport_size()
+	var bounds: Rect2 = PlayableArea.get_actor_bounds(DEFENDER_RADIUS)
+	var best_position: Vector2 = PlayableArea.clamp_to_bounds(viewport_size * 0.1, bounds)
 	var best_score: float = -1.0
 	for candidate: Vector2 in SPAWN_CANDIDATES:
-		var candidate_position: Vector2 = candidate * _viewport_size
+		var candidate_position: Vector2 = PlayableArea.clamp_to_bounds(
+			candidate * viewport_size, bounds
+		)
 		var score: float = minf(
 			candidate_position.distance_to(_player.global_position),
 			candidate_position.distance_to(_rebuild_zone.global_position)
@@ -135,18 +134,6 @@ func _apply_grace_visual() -> void:
 
 
 func _keep_inside_viewport() -> void:
-	global_position.x = clampf(
-		global_position.x,
-		DEFENDER_RADIUS + _edge_margin.x,
-		_viewport_size.x - DEFENDER_RADIUS - _edge_margin.x
+	global_position = PlayableArea.clamp_to_bounds(
+		global_position, PlayableArea.get_actor_bounds(DEFENDER_RADIUS)
 	)
-	global_position.y = clampf(
-		global_position.y,
-		DEFENDER_RADIUS + _edge_margin.y,
-		_viewport_size.y - DEFENDER_RADIUS - _edge_margin.y
-	)
-
-
-func _update_viewport_size() -> void:
-	_viewport_size = get_viewport_rect().size
-	_edge_margin = Vector2.ONE * EDGE_SAFE_INSET + ViewportSafeArea.get_padding()

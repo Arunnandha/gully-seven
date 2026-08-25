@@ -8,9 +8,15 @@ const VILLAGE_COURTYARD_THEME: ArenaTheme = preload("res://resources/themes/vill
 const TEMPLE_COURTYARD_THEME: ArenaTheme = preload("res://resources/themes/temple_courtyard.tres")
 const COASTAL_VILLAGE_THEME: ArenaTheme = preload("res://resources/themes/coastal_village.tres")
 
+const THEMES: Array[ArenaTheme] = [
+	VILLAGE_COURTYARD_THEME, TEMPLE_COURTYARD_THEME, COASTAL_VILLAGE_THEME,
+]
+
 const TOWER_IMPACT_SHAKE: float = 0.6
 const TAG_SHAKE: float = 0.5
 const COMPLETION_SHAKE: float = 0.7
+
+const SFX_ENABLED_VOLUME: float = 0.85
 
 const WORLD_DIM_MARGIN: float = 40.0
 
@@ -33,7 +39,6 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _feedback: FeedbackManager = $FeedbackManager
 @onready var _world_dim: ColorRect = $WorldDim
 @onready var _breath_bar: BreathBar = $UI/BreathBar
-@onready var _controls_label: Label = $UI/InstructionsPanel/Margin/Content/ControlsLabel
 @onready var _result_label: Label = $UI/InstructionsPanel/Margin/Content/ResultLabel
 @onready var _debug_panel: Panel = $UI/DebugPanel
 @onready var _debug_label: Label = $UI/DebugPanel/Margin/DebugLabel
@@ -42,13 +47,17 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _round_label: Label = $UI/TopLeftPanel/Margin/Content/RoundLabel
 @onready var _score_label: Label = $UI/TopLeftPanel/Margin/Content/ScoreLabel
 @onready var _reset_button: Button = $UI/ResetButton
+@onready var _home_button: Button = $UI/HomeButton
+@onready var _tutorial: TutorialController = $UI/TutorialPrompt
 @onready var _result_overlay: ResultOverlay = $UI/ResultOverlay
+@onready var _start_screen: StartScreen = $StartLayer/StartScreen
 
 var _fps_refresh_remaining: float = 0.0
 var _carried_count: int = 0
 var _rebuilt_count: int = 0
 var _current_state_name: String = "READY"
 var _current_theme: ArenaTheme = null
+var _theme_index: int = 0
 
 
 func _ready() -> void:
@@ -69,8 +78,15 @@ func _ready() -> void:
 	_stone_tower.deposited_count_changed.connect(_on_deposited_count_changed)
 	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
+	_home_button.pressed.connect(_on_home_button_pressed)
 	_score_manager.score_changed.connect(_on_score_changed)
 	_result_overlay.play_again_pressed.connect(_on_play_again_pressed)
+	_rebuild_zone.player_exited.connect(_on_rebuild_zone_exited_tutorial)
+	_start_screen.play_pressed.connect(_on_start_play_pressed)
+	_start_screen.theme_prev_pressed.connect(_on_theme_prev_pressed)
+	_start_screen.theme_next_pressed.connect(_on_theme_next_pressed)
+	_start_screen.sfx_toggled.connect(_on_sfx_toggled)
+	_start_screen.haptics_toggled.connect(_on_haptics_toggled)
 	for piece: StonePiece in _stone_tower.get_pieces():
 		piece.stone_collected.connect(_on_stone_collected_effect)
 
@@ -89,9 +105,13 @@ func _ready() -> void:
 		_defender,
 		_score_manager
 	)
-	_apply_arena_theme(VILLAGE_COURTYARD_THEME)
+	_select_theme(0)
 	_on_score_changed(_score_manager.score)
 	_refresh_round_label()
+	_start_screen.set_sfx_enabled(true)
+	_start_screen.set_haptics_enabled(_feedback.haptics_enabled)
+	_gate_input_for_start_screen()
+	_start_screen.show_screen()
 
 
 func _apply_arena_theme(arena_theme: ArenaTheme) -> void:
@@ -108,6 +128,17 @@ func _apply_arena_theme(arena_theme: ArenaTheme) -> void:
 	_refresh_debug_label()
 
 
+func _select_theme(index: int) -> void:
+	_theme_index = index
+	_apply_arena_theme(THEMES[_theme_index])
+	_start_screen.set_theme_name(THEMES[_theme_index].theme_name)
+
+
+func _gate_input_for_start_screen() -> void:
+	_player.set_movement_enabled(false)
+	_throw_ball.aiming_enabled = false
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not debug_display_enabled or not event is InputEventKey:
 		return
@@ -116,16 +147,55 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match key_event.keycode:
 		KEY_1:
-			_apply_arena_theme(VILLAGE_COURTYARD_THEME)
+			_select_theme(0)
 		KEY_2:
-			_apply_arena_theme(TEMPLE_COURTYARD_THEME)
+			_select_theme(1)
 		KEY_3:
-			_apply_arena_theme(COASTAL_VILLAGE_THEME)
+			_select_theme(2)
 
 
 func _on_reset_button_pressed() -> void:
 	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
 	_round_controller.request_reset()
+
+
+func _on_home_button_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_tutorial.stop()
+	_result_overlay.hide_result()
+	_world_dim.visible = false
+	_round_controller.request_home()
+	_gate_input_for_start_screen()
+	_start_screen.show_screen()
+
+
+func _on_start_play_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_round_controller.request_reset()
+	_start_screen.hide_screen()
+	_tutorial.start()
+
+
+func _on_theme_prev_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_select_theme((_theme_index - 1 + THEMES.size()) % THEMES.size())
+
+
+func _on_theme_next_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_select_theme((_theme_index + 1) % THEMES.size())
+
+
+func _on_sfx_toggled(enabled: bool) -> void:
+	_feedback.set_sfx_volume(SFX_ENABLED_VOLUME if enabled else 0.0)
+
+
+func _on_haptics_toggled(enabled: bool) -> void:
+	_feedback.set_haptics_enabled(enabled)
+
+
+func _on_rebuild_zone_exited_tutorial() -> void:
+	_tutorial.notify_rebuild_zone_exited()
 
 
 func _on_score_changed(score: int) -> void:
@@ -174,6 +244,7 @@ func _on_stone_deposited_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.STONE_DEPOSIT, effect_position)
 	_player.play_pulse()
 	_feedback.trigger(FeedbackManager.Event.STONE_DEPOSIT)
+	_tutorial.notify_stone_deposited()
 
 
 func _on_player_tagged_effect(effect_position: Vector2) -> void:
@@ -198,11 +269,15 @@ func _on_round_result_ready(message: String) -> void:
 func _on_stone_count_changed(count: int) -> void:
 	_carried_count = count
 	_refresh_stones_labels()
+	if count >= 1:
+		_tutorial.notify_stone_collected()
 
 
 func _on_deposited_count_changed(count: int) -> void:
 	_rebuilt_count = count
 	_refresh_stones_labels()
+	if count >= StoneTower.STONE_COUNT:
+		_tutorial.notify_round_complete()
 
 
 func _refresh_stones_labels() -> void:
@@ -212,7 +287,6 @@ func _refresh_stones_labels() -> void:
 
 func _on_round_state_changed(new_state: RoundController.State) -> void:
 	_current_state_name = _round_controller.get_state_name()
-	_controls_label.text = _get_controls_text(new_state)
 	_breath_bar.set_shown(
 		new_state == RoundController.State.RAID
 		or new_state == RoundController.State.RETURN
@@ -227,22 +301,11 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 		_screen_shake.stop()
 		_player.reset_visual_feedback()
 		_feedback.stop_active_sounds()
-
-
-func _get_controls_text(state: RoundController.State) -> String:
-	match state:
-		RoundController.State.READY:
-			return "Drag from the ball to aim | Drag elsewhere or WASD to move"
+	match new_state:
 		RoundController.State.AIM:
-			return "Release to throw | Short drag cancels"
+			_tutorial.notify_aim_started()
 		RoundController.State.BREAK:
-			return "Stones scattering..."
-		RoundController.State.RAID, RoundController.State.RETURN:
-			return "Touch or left-drag to move | WASD / arrow keys"
-		RoundController.State.REBUILD:
-			return "Tower rebuilding..."
-		_:
-			return "Press Reset or R"
+			_tutorial.notify_break_started()
 
 
 func _on_tower_scatter_started(impact_position: Vector2) -> void:
@@ -271,6 +334,7 @@ func _refresh_debug_label() -> void:
 
 func _update_viewport_layout() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
+	PlayableArea.update(viewport_size)
 	_arena_backdrop.set_viewport_size(viewport_size)
 	_world_dim.position = -Vector2.ONE * WORLD_DIM_MARGIN
 	_world_dim.size = viewport_size + Vector2.ONE * WORLD_DIM_MARGIN * 2.0

@@ -15,11 +15,11 @@ const MAX_CENTER_SPACING: float = 70.0
 const LINK_GAP: float = 4.0
 const PICKUP_BLEND_DURATION: float = 0.3
 const FALLBACK_DIRECTION: Vector2 = Vector2(0.0, 1.0)
-# Breath-failure drop: one deterministic ring around the player. At radius 100
-# even seven stones sit ~82 px apart (chord), clear of each other's footprint.
+# Tag/breath-failure drop: one deterministic ring around the drop origin. At
+# radius 100 even seven stones sit ~82 px apart (chord), clear of each other's
+# footprint.
 const DROP_RADIUS: float = 100.0
 const DROP_ANGLE_OFFSET: float = 0.6
-const DROP_VIEWPORT_MARGIN: float = 70.0
 
 var _player_controller: GullyPlayerController = null
 var _stone_tower: StoneTower = null
@@ -212,22 +212,35 @@ func drop_all_stones() -> void:
 	if count == 0:
 		return
 
-	var viewport_rect: Rect2 = _player_controller.get_viewport_rect()
+	# Clamp the ring ORIGIN deep enough inside the shared collectible-safe
+	# rect that the whole ring fits even for the largest carried stone, so a
+	# tag or breath failure near an edge redirects the spread inward instead
+	# of piling stones along the boundary. Each piece then self-clamps once
+	# more in drop_scattered() as the deterministic final guarantee.
+	var max_half_width: float = 0.0
+	var min_pickup_radius: float = INF
+	for stone: StonePiece in _carried_stones:
+		max_half_width = maxf(max_half_width, stone.stone_size.x * 0.5)
+		min_pickup_radius = minf(min_pickup_radius, stone.get_pickup_radius())
+
+	var ring_bounds: Rect2 = PlayableArea.get_collectible_bounds(
+		Vector2.ONE * max_half_width, min_pickup_radius
+	).grow(-DROP_RADIUS)
 	var origin: Vector2 = _player_controller.global_position
+	if ring_bounds.size.x > 0.0:
+		origin.x = clampf(origin.x, ring_bounds.position.x, ring_bounds.end.x)
+	else:
+		origin.x = ring_bounds.get_center().x
+	if ring_bounds.size.y > 0.0:
+		origin.y = clampf(origin.y, ring_bounds.position.y, ring_bounds.end.y)
+	else:
+		origin.y = ring_bounds.get_center().y
+
 	for slot_index: int in range(count):
 		var angle: float = DROP_ANGLE_OFFSET + TAU * float(slot_index) / float(count)
-		var drop_position: Vector2 = origin + Vector2.RIGHT.rotated(angle) * DROP_RADIUS
-		drop_position.x = clampf(
-			drop_position.x,
-			viewport_rect.position.x + DROP_VIEWPORT_MARGIN,
-			viewport_rect.end.x - DROP_VIEWPORT_MARGIN
+		_carried_stones[slot_index].drop_scattered(
+			origin + Vector2.RIGHT.rotated(angle) * DROP_RADIUS
 		)
-		drop_position.y = clampf(
-			drop_position.y,
-			viewport_rect.position.y + DROP_VIEWPORT_MARGIN,
-			viewport_rect.end.y - DROP_VIEWPORT_MARGIN
-		)
-		_carried_stones[slot_index].drop_scattered(drop_position)
 
 	_carried_stones.clear()
 	_active_blend_count = 0
