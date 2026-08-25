@@ -28,11 +28,18 @@ var _carried_stone_count: int = 0
 func set_movement_enabled(enabled: bool) -> void:
 	_movement_enabled = enabled
 	if not enabled:
-		_active_touch_index = NO_TOUCH
-		_mouse_drag_active = false
-		_joystick_input = Vector2.ZERO
-		_joystick_visual.hide_joystick()
+		clear_pointer_state()
 		velocity = Vector2.ZERO
+		_player_visual.set_idle()
+
+
+# Clears touch/mouse/joystick tracking without changing movement_enabled;
+# used when the pause overlay swallows the release event mid-drag.
+func clear_pointer_state() -> void:
+	_active_touch_index = NO_TOUCH
+	_mouse_drag_active = false
+	_joystick_input = Vector2.ZERO
+	_joystick_visual.hide_joystick()
 
 
 func reset_to_start(start_position: Vector2) -> void:
@@ -49,12 +56,12 @@ func apply_theme(arena_theme: ArenaTheme) -> void:
 	_player_visual.apply_theme(arena_theme)
 
 
-func play_pulse() -> void:
-	_player_visual.pulse()
+func play_reaction(reaction: GullyCharacterVisual.Reaction) -> void:
+	_player_visual.play_reaction(reaction)
 
 
 func reset_visual_feedback() -> void:
-	_player_visual.reset_pulse()
+	_player_visual.reset_visuals()
 
 
 func _get_effective_maximum_speed() -> float:
@@ -93,8 +100,7 @@ func _physics_process(delta: float) -> void:
 	velocity = velocity.move_toward(target_velocity, change_rate * delta)
 	move_and_slide()
 	_keep_inside_gameplay_area()
-	if velocity.length_squared() > 100.0:
-		_player_visual.set_facing_direction(velocity)
+	_player_visual.update_motion(velocity)
 
 
 func _handle_screen_touch(event: InputEventScreenTouch) -> void:

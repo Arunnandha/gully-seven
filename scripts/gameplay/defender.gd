@@ -54,6 +54,16 @@ func set_chase_enabled(enabled: bool) -> void:
 	if enabled:
 		reset_to_spawn()
 		start_grace()
+	else:
+		_defender_visual.set_idle()
+
+
+func play_tag_reaction() -> void:
+	_defender_visual.play_reaction(GullyCharacterVisual.Reaction.REACH)
+
+
+func reset_visuals() -> void:
+	_defender_visual.reset_visuals()
 
 
 func reset_to_spawn() -> void:
@@ -97,8 +107,7 @@ func _physics_process(delta: float) -> void:
 	velocity = velocity.move_toward(desired_velocity, chase_acceleration * delta)
 	global_position += velocity * delta
 	_keep_inside_viewport()
-	if velocity.length_squared() > 100.0:
-		_defender_visual.set_facing_direction(velocity)
+	_defender_visual.update_motion(velocity)
 
 	if (
 		not player_safe

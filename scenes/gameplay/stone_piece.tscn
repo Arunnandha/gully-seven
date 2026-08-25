@@ -8,6 +8,7 @@ radius = 15.0
 height = 118.0
 
 [node name="StonePiece" type="Area2D"]
+z_index = 2
 monitoring = false
 script = ExtResource("1_piece")
 

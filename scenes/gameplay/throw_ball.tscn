@@ -8,6 +8,7 @@
 radius = 14.0
 
 [node name="ThrowBall" type="CharacterBody2D"]
+z_index = 2
 script = ExtResource("1_ball")
 
 [node name="BallVisual" type="Node2D" parent="."]

@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/player_visual.gd" id="2_visual"]
 [ext_resource type="Script" path="res://scripts/player/joystick_visual.gd" id="3_joystick"]
+[ext_resource type="Script" path="res://scripts/presentation/character_shadow.gd" id="4_shadow"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 28.0
@@ -12,7 +13,14 @@ motion_mode = 1
 script = ExtResource("1_controller")
 
 [node name="PlayerVisual" type="Node2D" parent="."]
+z_index = 4
 script = ExtResource("2_visual")
+
+[node name="Shadow" type="Node2D" parent="PlayerVisual"]
+z_index = -1
+z_as_relative = false
+script = ExtResource("4_shadow")
+shadow_radius = 17.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_player")

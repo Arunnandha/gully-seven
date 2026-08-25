@@ -47,9 +47,10 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _round_label: Label = $UI/TopLeftPanel/Margin/Content/RoundLabel
 @onready var _score_label: Label = $UI/TopLeftPanel/Margin/Content/ScoreLabel
 @onready var _reset_button: Button = $UI/ResetButton
-@onready var _home_button: Button = $UI/HomeButton
+@onready var _pause_button: Button = $UI/PauseButton
 @onready var _tutorial: TutorialController = $UI/TutorialPrompt
 @onready var _result_overlay: ResultOverlay = $UI/ResultOverlay
+@onready var _pause_menu: PauseMenu = $UI/PauseMenu
 @onready var _start_screen: StartScreen = $StartLayer/StartScreen
 
 var _fps_refresh_remaining: float = 0.0
@@ -58,6 +59,9 @@ var _rebuilt_count: int = 0
 var _current_state_name: String = "READY"
 var _current_theme: ArenaTheme = null
 var _theme_index: int = 0
+var _sfx_enabled: bool = true
+var _haptics_enabled: bool = true
+var _game_paused: bool = false
 
 
 func _ready() -> void:
@@ -78,7 +82,12 @@ func _ready() -> void:
 	_stone_tower.deposited_count_changed.connect(_on_deposited_count_changed)
 	_stone_trail.stone_count_changed.connect(_on_stone_count_changed)
 	_reset_button.pressed.connect(_on_reset_button_pressed)
-	_home_button.pressed.connect(_on_home_button_pressed)
+	_pause_button.pressed.connect(_on_pause_button_pressed)
+	_pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
+	_pause_menu.restart_pressed.connect(_on_pause_restart_pressed)
+	_pause_menu.home_pressed.connect(_on_pause_home_pressed)
+	_pause_menu.sfx_toggled.connect(_on_sfx_toggled)
+	_pause_menu.haptics_toggled.connect(_on_haptics_toggled)
 	_score_manager.score_changed.connect(_on_score_changed)
 	_result_overlay.play_again_pressed.connect(_on_play_again_pressed)
 	_rebuild_zone.player_exited.connect(_on_rebuild_zone_exited_tutorial)
@@ -159,14 +168,14 @@ func _on_reset_button_pressed() -> void:
 	_round_controller.request_reset()
 
 
-func _on_home_button_pressed() -> void:
-	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+func _go_home() -> void:
 	_tutorial.stop()
 	_result_overlay.hide_result()
 	_world_dim.visible = false
 	_round_controller.request_home()
 	_gate_input_for_start_screen()
 	_start_screen.show_screen()
+	_pause_button.visible = false
 
 
 func _on_start_play_pressed() -> void:
@@ -174,6 +183,51 @@ func _on_start_play_pressed() -> void:
 	_round_controller.request_reset()
 	_start_screen.hide_screen()
 	_tutorial.start()
+	_refresh_pause_button_visibility()
+
+
+func _on_pause_button_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_set_paused(true)
+
+
+func _on_pause_resume_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_set_paused(false)
+
+
+func _on_pause_restart_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_set_paused(false)
+	_round_controller.request_reset()
+
+
+func _on_pause_home_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_set_paused(false)
+	_go_home()
+
+
+func _set_paused(paused: bool) -> void:
+	if _game_paused == paused:
+		return
+	_game_paused = paused
+	get_tree().paused = paused
+	if paused:
+		_feedback.stop_active_sounds()
+		_player.clear_pointer_state()
+		_pause_menu.show_menu(_sfx_enabled, _haptics_enabled)
+	else:
+		_pause_menu.hide_menu()
+	_refresh_pause_button_visibility()
+
+
+func _refresh_pause_button_visibility() -> void:
+	_pause_button.visible = (
+		not _start_screen.visible
+		and not _game_paused
+		and _round_controller.current_state != RoundController.State.RESULT
+	)
 
 
 func _on_theme_prev_pressed() -> void:
@@ -187,11 +241,15 @@ func _on_theme_next_pressed() -> void:
 
 
 func _on_sfx_toggled(enabled: bool) -> void:
+	_sfx_enabled = enabled
 	_feedback.set_sfx_volume(SFX_ENABLED_VOLUME if enabled else 0.0)
+	_start_screen.set_sfx_enabled(enabled)
 
 
 func _on_haptics_toggled(enabled: bool) -> void:
+	_haptics_enabled = enabled
 	_feedback.set_haptics_enabled(enabled)
+	_start_screen.set_haptics_enabled(enabled)
 
 
 func _on_rebuild_zone_exited_tutorial() -> void:
@@ -220,6 +278,7 @@ func _on_round_won(
 	_effect_pool.play(EffectPool.Kind.TOWER_COMPLETE, _stone_tower.global_position)
 	_screen_shake.shake(COMPLETION_SHAKE)
 	_feedback.trigger(FeedbackManager.Event.TOWER_COMPLETE)
+	_player.play_reaction(GullyCharacterVisual.Reaction.CELEBRATE)
 
 
 func _on_play_again_pressed() -> void:
@@ -236,13 +295,13 @@ func _on_ball_thrown_effect(effect_position: Vector2) -> void:
 
 func _on_stone_collected_effect(piece: StonePiece) -> void:
 	_effect_pool.play(EffectPool.Kind.STONE_COLLECT, piece.global_position)
-	_player.play_pulse()
+	_player.play_reaction(GullyCharacterVisual.Reaction.BOUNCE)
 	_feedback.trigger(FeedbackManager.Event.STONE_PICKUP)
 
 
 func _on_stone_deposited_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.STONE_DEPOSIT, effect_position)
-	_player.play_pulse()
+	_player.play_reaction(GullyCharacterVisual.Reaction.REACH)
 	_feedback.trigger(FeedbackManager.Event.STONE_DEPOSIT)
 	_tutorial.notify_stone_deposited()
 
@@ -251,11 +310,14 @@ func _on_player_tagged_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.DEFENDER_TAG, effect_position)
 	_screen_shake.shake(TAG_SHAKE)
 	_feedback.trigger(FeedbackManager.Event.DEFENDER_TAG)
+	_player.play_reaction(GullyCharacterVisual.Reaction.RECOIL)
+	_defender.play_tag_reaction()
 
 
 func _on_breath_expired_effect(effect_position: Vector2) -> void:
 	_effect_pool.play(EffectPool.Kind.BREATH_FAIL, effect_position)
 	_feedback.trigger(FeedbackManager.Event.BREATH_FAILURE)
+	_player.play_reaction(GullyCharacterVisual.Reaction.TIRED)
 
 
 func _on_breath_warning() -> void:
@@ -300,7 +362,9 @@ func _on_round_state_changed(new_state: RoundController.State) -> void:
 		_effect_pool.stop_all()
 		_screen_shake.stop()
 		_player.reset_visual_feedback()
+		_defender.reset_visuals()
 		_feedback.stop_active_sounds()
+	_refresh_pause_button_visibility()
 	match new_state:
 		RoundController.State.AIM:
 			_tutorial.notify_aim_started()

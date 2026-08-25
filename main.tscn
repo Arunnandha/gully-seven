@@ -18,6 +18,7 @@
 [ext_resource type="Script" path="res://scripts/audio/feedback_manager.gd" id="16_feedback"]
 [ext_resource type="Script" path="res://scripts/ui/start_screen.gd" id="17_startscreen"]
 [ext_resource type="Script" path="res://scripts/ui/tutorial_controller.gd" id="18_tutorial"]
+[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="19_pausemenu"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hudpanel"]
 bg_color = Color(0.09, 0.06, 0.04, 0.88)
@@ -103,6 +104,7 @@ script = ExtResource("14_effectpool")
 script = ExtResource("15_shake")
 
 [node name="FeedbackManager" type="Node" parent="."]
+process_mode = 3
 script = ExtResource("16_feedback")
 
 [node name="WorldDim" type="ColorRect" parent="."]
@@ -296,17 +298,18 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
 theme_override_font_sizes/font_size = 18
 text = "RESET"
 
-[node name="HomeButton" type="Button" parent="UI"]
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = -68.0
-offset_right = 96.0
-offset_bottom = -16.0
+[node name="PauseButton" type="Button" parent="UI"]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -262.0
+offset_top = 14.0
+offset_right = -218.0
+offset_bottom = 58.0
 theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
-theme_override_font_sizes/font_size = 16
-text = "HOME"
+theme_override_font_sizes/font_size = 18
+text = "II"
 
 [node name="TutorialPrompt" type="Panel" parent="UI"]
 visible = false
@@ -511,6 +514,96 @@ custom_minimum_size = Vector2(0, 58)
 theme_override_styles/normal = SubResource("StyleBoxFlat_playagain")
 theme_override_font_sizes/font_size = 22
 text = "PLAY AGAIN"
+
+[node name="PauseMenu" type="Control" parent="UI"]
+visible = false
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("19_pausemenu")
+
+[node name="Dim" type="ColorRect" parent="UI/PauseMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.05, 0.04, 0.03, 0.6)
+
+[node name="Card" type="PanelContainer" parent="UI/PauseMenu"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+custom_minimum_size = Vector2(380, 0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Margin" type="MarginContainer" parent="UI/PauseMenu/Card"]
+layout_mode = 2
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 22
+
+[node name="Content" type="VBoxContainer" parent="UI/PauseMenu/Card/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.98, 0.90, 0.78, 1)
+theme_override_font_sizes/font_size = 28
+text = "PAUSED"
+
+[node name="HSeparator1" type="HSeparator" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+
+[node name="ResumeButton" type="Button" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 54)
+theme_override_styles/normal = SubResource("StyleBoxFlat_playagain")
+theme_override_font_sizes/font_size = 20
+text = "RESUME"
+
+[node name="RestartButton" type="Button" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 17
+text = "RESTART ROUND"
+
+[node name="TogglesRow" type="HBoxContainer" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 24
+
+[node name="SfxToggle" type="CheckButton" parent="UI/PauseMenu/Card/Margin/Content/TogglesRow"]
+layout_mode = 2
+button_pressed = true
+theme_override_font_sizes/font_size = 14
+text = "SFX"
+
+[node name="HapticsToggle" type="CheckButton" parent="UI/PauseMenu/Card/Margin/Content/TogglesRow"]
+layout_mode = 2
+button_pressed = true
+theme_override_font_sizes/font_size = 14
+text = "HAPTICS"
+
+[node name="HomeButton" type="Button" parent="UI/PauseMenu/Card/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+theme_override_styles/normal = SubResource("StyleBoxFlat_reset")
+theme_override_font_sizes/font_size = 17
+text = "HOME"
 
 [node name="StartLayer" type="CanvasLayer" parent="."]
 layer = 20
