@@ -3,6 +3,7 @@ extends Control
 
 
 signal play_pressed
+signal local_challenge_pressed
 signal theme_prev_pressed
 signal theme_next_pressed
 signal sfx_toggled(enabled: bool)
@@ -14,6 +15,7 @@ signal haptics_toggled(enabled: bool)
 @onready var _sfx_toggle: CheckButton = $Panel/Margin/Content/TogglesRow/SfxToggle
 @onready var _haptics_toggle: CheckButton = $Panel/Margin/Content/TogglesRow/HapticsToggle
 @onready var _play_button: Button = $Panel/Margin/Content/PlayButton
+@onready var _local_challenge_button: Button = $Panel/Margin/Content/LocalChallengeButton
 
 
 func _ready() -> void:
@@ -21,6 +23,7 @@ func _ready() -> void:
 	_prev_button.pressed.connect(_on_prev_pressed)
 	_next_button.pressed.connect(_on_next_pressed)
 	_play_button.pressed.connect(_on_play_pressed)
+	_local_challenge_button.pressed.connect(_on_local_challenge_pressed)
 	_sfx_toggle.toggled.connect(_on_sfx_toggled)
 	_haptics_toggle.toggled.connect(_on_haptics_toggled)
 
@@ -55,6 +58,10 @@ func _on_next_pressed() -> void:
 
 func _on_play_pressed() -> void:
 	play_pressed.emit()
+
+
+func _on_local_challenge_pressed() -> void:
+	local_challenge_pressed.emit()
 
 
 func _on_sfx_toggled(enabled: bool) -> void:

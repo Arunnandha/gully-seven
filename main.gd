@@ -52,7 +52,15 @@ const TOWER_MARGIN_FLOOR: float = 40.0
 @onready var _tutorial: TutorialController = $UI/TutorialPrompt
 @onready var _result_overlay: ResultOverlay = $UI/ResultOverlay
 @onready var _pause_menu: PauseMenu = $UI/PauseMenu
+@onready var _turn_ready_overlay: TurnReadyOverlay = $UI/TurnReadyOverlay
+@onready var _round_comparison_overlay: RoundComparisonOverlay = $UI/RoundComparisonOverlay
+@onready var _final_match_overlay: FinalMatchOverlay = $UI/FinalMatchOverlay
+@onready var _confirm_dialog: ConfirmDialog = $UI/ConfirmDialog
 @onready var _start_screen: StartScreen = $StartLayer/StartScreen
+@onready var _local_challenge_setup: LocalChallengeSetup = $StartLayer/LocalChallengeSetup
+@onready var _match_controller: MatchController = $MatchController
+
+const HOME_CONFIRM_MESSAGE: String = "Abandon this match and return home?"
 
 var _fps_refresh_remaining: float = 0.0
 var _carried_count: int = 0
@@ -63,6 +71,14 @@ var _theme_index: int = 0
 var _sfx_enabled: bool = true
 var _haptics_enabled: bool = true
 var _game_paused: bool = false
+
+# Cached until the round-comparison "Continue" tap so the final-match
+# overlay never appears stacked on top of the just-shown comparison card.
+var _match_is_over: bool = false
+var _final_winner_index: int = -1
+var _final_wins: Array[int] = [0, 0]
+var _final_total_scores: Array[int] = [0, 0]
+var _final_best_grade_names: Array[String] = ["MEDIUM", "MEDIUM"]
 
 
 func _ready() -> void:
@@ -93,10 +109,22 @@ func _ready() -> void:
 	_result_overlay.play_again_pressed.connect(_on_play_again_pressed)
 	_rebuild_zone.player_exited.connect(_on_rebuild_zone_exited_tutorial)
 	_start_screen.play_pressed.connect(_on_start_play_pressed)
+	_start_screen.local_challenge_pressed.connect(_on_local_challenge_pressed)
 	_start_screen.theme_prev_pressed.connect(_on_theme_prev_pressed)
 	_start_screen.theme_next_pressed.connect(_on_theme_next_pressed)
 	_start_screen.sfx_toggled.connect(_on_sfx_toggled)
 	_start_screen.haptics_toggled.connect(_on_haptics_toggled)
+	_local_challenge_setup.start_match_pressed.connect(_on_local_challenge_start_match_pressed)
+	_local_challenge_setup.back_pressed.connect(_on_local_challenge_back_pressed)
+	_match_controller.turn_ready.connect(_on_match_turn_ready)
+	_match_controller.round_compared.connect(_on_match_round_compared)
+	_match_controller.match_finished.connect(_on_match_finished)
+	_turn_ready_overlay.ready_pressed.connect(_on_turn_ready_pressed)
+	_round_comparison_overlay.continue_pressed.connect(_on_round_comparison_continue_pressed)
+	_final_match_overlay.rematch_pressed.connect(_on_final_match_rematch_pressed)
+	_final_match_overlay.home_pressed.connect(_on_final_match_home_pressed)
+	_confirm_dialog.confirmed.connect(_on_home_confirm_confirmed)
+	_confirm_dialog.cancelled.connect(_on_home_confirm_cancelled)
 	for piece: StonePiece in _stone_tower.get_pieces():
 		piece.stone_collected.connect(_on_stone_collected_effect)
 
@@ -115,6 +143,7 @@ func _ready() -> void:
 		_defender,
 		_score_manager
 	)
+	_match_controller.setup(_round_controller)
 	_select_theme(0)
 	_on_score_changed(_score_manager.score)
 	_refresh_round_label()
@@ -172,6 +201,11 @@ func _on_reset_button_pressed() -> void:
 func _go_home() -> void:
 	_tutorial.stop()
 	_result_overlay.hide_result()
+	_turn_ready_overlay.hide_overlay()
+	_round_comparison_overlay.hide_overlay()
+	_final_match_overlay.hide_overlay()
+	_local_challenge_setup.hide_screen()
+	_match_is_over = false
 	_world_dim.visible = false
 	_round_controller.request_home()
 	_gate_input_for_start_screen()
@@ -181,10 +215,116 @@ func _go_home() -> void:
 
 func _on_start_play_pressed() -> void:
 	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_match_controller.abandon_match()
 	_round_controller.request_reset()
 	_start_screen.hide_screen()
 	_tutorial.start()
 	_refresh_pause_button_visibility()
+
+
+func _on_local_challenge_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_start_screen.hide_screen()
+	_local_challenge_setup.show_screen()
+
+
+func _on_local_challenge_back_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_local_challenge_setup.hide_screen()
+	_start_screen.show_screen()
+
+
+func _on_local_challenge_start_match_pressed(name_a: String, name_b: String) -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_local_challenge_setup.hide_screen()
+	# Local Challenge always plays at the flat "round 1" difficulty tier for
+	# the whole match — MatchController never calls advance_round(), so this
+	# one reset is the only difficulty-pinning needed.
+	_match_is_over = false
+	_score_manager.reset_session()
+	_match_controller.start_match([name_a, name_b])
+	_gate_input_for_start_screen()
+
+
+func _on_turn_ready_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_turn_ready_overlay.hide_overlay()
+	_match_controller.confirm_player_ready()
+	_refresh_pause_button_visibility()
+
+
+func _on_match_turn_ready(
+	_player_index: int,
+	player_name: String,
+	match_round: int,
+	is_handover: bool,
+	tiebreaker_number: int
+) -> void:
+	_gate_input_for_start_screen()
+	_turn_ready_overlay.show_for(player_name, match_round, is_handover, tiebreaker_number)
+	_refresh_pause_button_visibility()
+
+
+func _on_match_round_compared(
+	result_a: AttemptResult, result_b: AttemptResult, winner_index: int, wins: Array[int]
+) -> void:
+	_round_comparison_overlay.show_comparison(result_a, result_b, winner_index, wins)
+	_world_dim.visible = true
+	_refresh_pause_button_visibility()
+
+
+func _on_match_finished(
+	winner_index: int, wins: Array[int], total_scores: Array[int], best_grade_names: Array[String]
+) -> void:
+	# Cached rather than shown immediately: round_compared always fires
+	# first for the deciding round, and its comparison card must be read
+	# before the final-match card replaces it.
+	_match_is_over = true
+	_final_winner_index = winner_index
+	_final_wins = wins
+	_final_total_scores = total_scores
+	_final_best_grade_names = best_grade_names
+
+
+func _on_round_comparison_continue_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_round_comparison_overlay.hide_overlay()
+	if _match_is_over:
+		_match_is_over = false
+		_final_match_overlay.show_final(
+			_final_winner_index,
+			_final_wins,
+			_match_controller.player_names,
+			_final_total_scores,
+			_final_best_grade_names
+		)
+	else:
+		_world_dim.visible = false
+		_match_controller.advance_to_next_round()
+
+
+func _on_final_match_rematch_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_match_is_over = false
+	_score_manager.reset_session()
+	_match_controller.start_match(_match_controller.player_names)
+	_gate_input_for_start_screen()
+
+
+func _on_final_match_home_pressed() -> void:
+	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
+	_match_controller.abandon_match()
+	_go_home()
+
+
+func _on_home_confirm_confirmed() -> void:
+	_set_paused(false)
+	_match_controller.abandon_match()
+	_go_home()
+
+
+func _on_home_confirm_cancelled() -> void:
+	_set_paused(false)
 
 
 func _on_pause_button_pressed() -> void:
@@ -200,13 +340,20 @@ func _on_pause_resume_pressed() -> void:
 func _on_pause_restart_pressed() -> void:
 	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
 	_set_paused(false)
+	_match_is_over = false
 	_round_controller.request_reset()
 
 
 func _on_pause_home_pressed() -> void:
 	_feedback.trigger(FeedbackManager.Event.BUTTON_PRESS)
-	_set_paused(false)
-	_go_home()
+	if _match_controller.is_active():
+		# Stay paused behind the confirmation — resuming gameplay here would
+		# let the defender/breath/timer run while the player is deciding.
+		_pause_menu.hide_menu()
+		_confirm_dialog.show_confirm(HOME_CONFIRM_MESSAGE)
+	else:
+		_set_paused(false)
+		_go_home()
 
 
 func _set_paused(paused: bool) -> void:
@@ -226,6 +373,10 @@ func _set_paused(paused: bool) -> void:
 func _refresh_pause_button_visibility() -> void:
 	_pause_button.visible = (
 		not _start_screen.visible
+		and not _local_challenge_setup.visible
+		and not _turn_ready_overlay.visible
+		and not _round_comparison_overlay.visible
+		and not _final_match_overlay.visible
 		and not _game_paused
 		and _round_controller.current_state != RoundController.State.RESULT
 	)
@@ -262,7 +413,18 @@ func _on_score_changed(score: int) -> void:
 
 
 func _refresh_round_label() -> void:
-	_round_label.text = "ROUND %d" % _score_manager.round_number
+	if _match_controller.is_active():
+		if _match_controller.get_tiebreaker_number() > 0:
+			_round_label.text = "%s · TIEBREAKER %d" % [
+				_match_controller.get_current_player_name(),
+				_match_controller.get_tiebreaker_number()
+			]
+		else:
+			_round_label.text = "%s · ROUND %d/3" % [
+				_match_controller.get_current_player_name(), _match_controller.get_match_round()
+			]
+	else:
+		_round_label.text = "ROUND %d" % _score_manager.round_number
 
 
 func _on_round_won(
@@ -278,6 +440,25 @@ func _on_round_won(
 	stones_rebuilt: int,
 	rank_name: String
 ) -> void:
+	_effect_pool.play(EffectPool.Kind.TOWER_COMPLETE, _stone_tower.global_position)
+	_screen_shake.shake(COMPLETION_SHAKE)
+	_feedback.trigger(FeedbackManager.Event.TOWER_COMPLETE)
+	_player.play_reaction(GullyCharacterVisual.Reaction.CELEBRATE)
+
+	if _match_controller.is_active():
+		_match_controller.record_attempt_result(
+			score,
+			time_seconds,
+			trips,
+			tags,
+			breath_failures,
+			_score_manager.get_throw_grade(),
+			accuracy_percent,
+			stones_rebuilt,
+			rank_name
+		)
+		return
+
 	_result_overlay.show_result(
 		score,
 		time_seconds,
@@ -292,10 +473,6 @@ func _on_round_won(
 		rank_name
 	)
 	_world_dim.visible = true
-	_effect_pool.play(EffectPool.Kind.TOWER_COMPLETE, _stone_tower.global_position)
-	_screen_shake.shake(COMPLETION_SHAKE)
-	_feedback.trigger(FeedbackManager.Event.TOWER_COMPLETE)
-	_player.play_reaction(GullyCharacterVisual.Reaction.CELEBRATE)
 
 
 func _on_play_again_pressed() -> void:

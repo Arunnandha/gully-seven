@@ -134,6 +134,15 @@ func get_round_seed() -> int:
 	return round_seed
 
 
+# Local Challenge: (re)arm the arena for the next attempt on round_seed
+# (already set by MatchController before this is called) without advancing
+# round_number/difficulty and without the request_reset() victory guard —
+# the previous attempt legitimately just won, so RESULT must be exitable.
+func request_match_next_attempt() -> void:
+	_victory_active = false
+	_enter_ready()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey
